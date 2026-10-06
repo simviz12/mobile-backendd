@@ -127,10 +127,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LinkDeviceResponseDto"
-      security: &a2
+      security:
         - bearer: []
       summary: Link or re-link a mobile device to the authenticated user account
-      tags: &a3
+      tags: &a2
         - Devices
     get:
       operationId: DeviceController_listDevices
@@ -142,9 +142,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListDevicesResponseDto"
-      security: *a2
+      security:
+        - bearer: []
       summary: List all devices belonging to the authenticated user (newest first)
-      tags: *a3
+      tags: *a2
   /devices/{id}:
     get:
       operationId: DeviceController_getDevice
@@ -161,9 +162,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeviceResponseDto"
-      security: *a2
+      security:
+        - bearer: []
       summary: Get details of a specific device belonging to the user
-      tags: *a3
+      tags: *a2
     patch:
       operationId: DeviceController_updateDevice
       parameters:
@@ -185,9 +187,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeviceResponseDto"
-      security: *a2
+      security:
+        - bearer: []
       summary: Update device details (name, fcmToken)
-      tags: *a3
+      tags: *a2
     delete:
       operationId: DeviceController_unlinkDevice
       parameters:
@@ -199,9 +202,35 @@ paths:
       responses:
         "204":
           description: ""
-      security: *a2
+      security:
+        - bearer: []
       summary: Unlink and delete a device, invalidating its device token
-      tags: *a3
+      tags: *a2
+  /devices/{id}/capabilities:
+    patch:
+      operationId: DeviceController_updateCapabilities
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceCapabilitiesDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponseDto"
+      summary: "Update device capabilities reported by the device itself
+        (Authorization: Device <token>)"
+      tags: *a2
   /devices/{id}/commands:
     post:
       operationId: CommandController_sendCommand
@@ -226,8 +255,9 @@ paths:
                 $ref: "#/components/schemas/CommandResponseDto"
       security:
         - bearer: []
-      summary: Issue a remote command (RING, VIBRATE, MESSAGE) to a protected device
-      tags: &a4
+      summary: Issue a remote command (RING, VIBRATE, MESSAGE, LOCK) to a protected
+        device
+      tags: &a3
         - Commands
     get:
       operationId: CommandController_listCommands
@@ -277,6 +307,7 @@ paths:
               - RING
               - VIBRATE
               - MESSAGE
+              - LOCK
       responses:
         "200":
           description: ""
@@ -287,7 +318,7 @@ paths:
       security:
         - bearer: []
       summary: List commands for a device with cursor pagination and optional filters
-      tags: *a4
+      tags: *a3
   /commands/{id}:
     get:
       operationId: CommandController_getCommand
@@ -307,7 +338,7 @@ paths:
       security:
         - bearer: []
       summary: Get command status by ID
-      tags: *a4
+      tags: *a3
   /commands/{id}/ack:
     post:
       operationId: CommandController_ackCommand
@@ -332,7 +363,7 @@ paths:
                 $ref: "#/components/schemas/CommandResponseDto"
       summary: "Acknowledge command delivery/execution from target device
         (Authorization: Device <token>)"
-      tags: *a4
+      tags: *a3
 info:
   title: Guardian Mobile API
   description: Remote Anti-Theft Protection System for Android Phones
@@ -564,6 +595,9 @@ components:
         fcmToken:
           type: object
           example: fcm-token-sample
+        adminEnabled:
+          type: boolean
+          example: false
         batteryLevel:
           type: object
           example: 85
@@ -589,6 +623,7 @@ components:
         - name
         - platform
         - mode
+        - adminEnabled
         - isOnline
         - createdAt
         - updatedAt
@@ -612,6 +647,15 @@ components:
             $ref: "#/components/schemas/DeviceResponseDto"
       required:
         - devices
+    UpdateDeviceCapabilitiesDto:
+      type: object
+      properties:
+        adminEnabled:
+          type: boolean
+          example: true
+          description: Whether Device Admin privilege is active
+      required:
+        - adminEnabled
     UpdateDeviceDto:
       type: object
       properties:
@@ -630,13 +674,14 @@ components:
             - RING
             - VIBRATE
             - MESSAGE
+            - LOCK
           example: RING
-          description: Type of remote command (RING, VIBRATE, MESSAGE)
+          description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK)
         payload:
           type: object
           description: "Payload specific to the command type. RING: {durationSeconds:
             5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200,
-            contactPhone?: string}."
+            contactPhone?: string}. LOCK: no payload allowed."
           example:
             durationSeconds: 30
       required:
@@ -659,6 +704,7 @@ components:
             - RING
             - VIBRATE
             - MESSAGE
+            - LOCK
           example: RING
         payload:
           type: object

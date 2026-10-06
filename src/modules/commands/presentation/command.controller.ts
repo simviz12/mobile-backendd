@@ -49,7 +49,7 @@ export class CommandController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Issue a remote command (RING, VIBRATE, MESSAGE) to a protected device' })
+  @ApiOperation({ summary: 'Issue a remote command (RING, VIBRATE, MESSAGE, LOCK) to a protected device' })
   @ApiResponse({ status: 201, type: CommandResponseDto })
   async sendCommand(
     @Param('id') deviceId: string,

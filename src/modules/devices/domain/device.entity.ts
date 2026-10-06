@@ -15,6 +15,7 @@ export interface DeviceProps {
   mode: DeviceMode;
   fcmToken?: string | null;
   deviceTokenHash?: string | null;
+  adminEnabled?: boolean;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
   lastSeenAt?: Date | null;
@@ -73,6 +74,10 @@ export class Device {
     return this.props.deviceTokenHash;
   }
 
+  get adminEnabled(): boolean {
+    return this.props.adminEnabled ?? false;
+  }
+
   get batteryLevel(): number | null | undefined {
     return this.props.batteryLevel;
   }
@@ -115,6 +120,11 @@ export class Device {
     this.props.updatedAt = new Date();
   }
 
+  updateCapabilities(capabilities: { adminEnabled: boolean }): void {
+    this.props.adminEnabled = capabilities.adminEnabled;
+    this.props.updatedAt = new Date();
+  }
+
   updateDeviceTokenHash(hash: string): void {
     this.props.deviceTokenHash = hash;
     this.props.updatedAt = new Date();
@@ -137,6 +147,7 @@ export class Device {
       appVersion: this.appVersion ?? null,
       mode: this.mode,
       fcmToken: this.fcmToken ?? null,
+      adminEnabled: this.adminEnabled,
       batteryLevel: this.batteryLevel ?? null,
       isCharging: this.isCharging ?? null,
       lastSeenAt: this.lastSeenAt ? this.lastSeenAt.toISOString() : null,

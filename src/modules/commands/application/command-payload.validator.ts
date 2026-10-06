@@ -17,10 +17,15 @@ export interface ValidatedMessagePayload {
 export type ValidatedCommandPayload =
   | ValidatedRingPayload
   | ValidatedVibratePayload
-  | ValidatedMessagePayload;
+  | ValidatedMessagePayload
+  | null;
 
 export class CommandPayloadValidator {
   static validate(type: CommandType, payload: any): ValidatedCommandPayload {
+    if (type === CommandType.LOCK) {
+      return this.validateLock(payload);
+    }
+
     const raw = payload ?? {};
 
     switch (type) {
@@ -38,6 +43,15 @@ export class CommandPayloadValidator {
           [`Invalid command type: ${type}`],
         );
     }
+  }
+
+  private static validateLock(payload: any): null {
+    if (payload !== undefined && payload !== null && Object.keys(payload).length > 0) {
+      throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, [
+        'LOCK command does not accept a payload',
+      ]);
+    }
+    return null;
   }
 
   private static validateRing(raw: any): ValidatedRingPayload {

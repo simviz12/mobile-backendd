@@ -114,6 +114,10 @@ npm run test:e2e
   - `RING`: Payload `{ durationSeconds: 5..60 }` (default 30).
   - `VIBRATE`: Payload `{ durationSeconds: 1..30 }` (default 5).
   - `MESSAGE`: Payload `{ text: 1..200 chars (trimmed, plain text), contactPhone?: string (5..20 digits and optional '+') }`.
+  - `LOCK`: No payload allowed. Requires target device to have `adminEnabled === true` (otherwise `409 CAPABILITY_NOT_AVAILABLE`). Uses shorter TTL (`LOCK_COMMAND_TTL_SECONDS`, default 60s). Logs immutable `AuditEvent`.
+- **Device Capabilities**:
+  - `adminEnabled` boolean reported by hardware daemon via `PATCH /devices/:id/capabilities` (`Authorization: Device <token>`).
+  - `adminEnabled` exposed in all device responses.
 - **Domain Validation**: Per-type payload validation strictly enforced in domain/application layer (`CommandPayloadValidator`).
 - **Push Notification Architecture**:
   - Clean Architecture `PushNotificationPort` decoupled from Firebase Admin SDK.
@@ -127,10 +131,11 @@ npm run test:e2e
   - `GET /devices/:id/commands` supports cursor pagination (`?limit=1..50`, `?cursor=...`) and filtering by `?status=...` and `?type=...`.
   - Response structure: `{ items: [...], nextCursor: string | null }`.
 - **Endpoints**:
-  - `POST /devices/:id/commands`: Issue command (`RING`, `VIBRATE`, `MESSAGE`)
+  - `POST /devices/:id/commands`: Issue command (`RING`, `VIBRATE`, `MESSAGE`, `LOCK`)
   - `GET /devices/:id/commands`: List commands issued for a device with cursor pagination & filters
   - `GET /commands/:id`: Get status and timestamps of an individual command
   - `POST /commands/:id/ack`: Device acknowledgment (`DELIVERED`, `EXECUTED`, or `FAILED`)
+  - `PATCH /devices/:id/capabilities`: Update device capabilities reported by device hardware daemon
 
 ---
 
