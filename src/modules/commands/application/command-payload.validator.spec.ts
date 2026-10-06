@@ -149,4 +149,22 @@ describe('CommandPayloadValidator', () => {
       ).toThrow(AppError);
     });
   });
+
+  describe('LOCK payload', () => {
+    it('accepts undefined, null, or empty object payload', () => {
+      expect(CommandPayloadValidator.validate(CommandType.LOCK, undefined)).toBeNull();
+      expect(CommandPayloadValidator.validate(CommandType.LOCK, null)).toBeNull();
+      expect(CommandPayloadValidator.validate(CommandType.LOCK, {})).toBeNull();
+    });
+
+    it('rejects any non-empty payload with 400 VALIDATION_ERROR', () => {
+      expect(() =>
+        CommandPayloadValidator.validate(CommandType.LOCK, { pin: '1234' }),
+      ).toThrow(AppError);
+
+      expect(() =>
+        CommandPayloadValidator.validate(CommandType.LOCK, { anyProp: true }),
+      ).toThrow(AppError);
+    });
+  });
 });

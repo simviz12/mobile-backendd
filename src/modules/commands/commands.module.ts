@@ -9,6 +9,9 @@ import { PUSH_NOTIFICATION_PORT } from './domain/push-notification.port.js';
 import { FirebasePushAdapter } from './infrastructure/firebase-push.adapter.js';
 import { CommandRepository } from './domain/command.repository.js';
 import { PushNotificationPort } from './domain/push-notification.port.js';
+import { AUDIT_EVENT_REPOSITORY } from './domain/audit-event.repository.js';
+import { AuditEventRepository } from './domain/audit-event.repository.js';
+import { PrismaAuditEventRepository } from './infrastructure/prisma-audit-event.repository.js';
 import { SendCommandUseCase } from './application/send-command.usecase.js';
 import { SendRingCommandUseCase } from './application/send-ring-command.usecase.js';
 import { ListDeviceCommandsUseCase } from './application/list-device-commands.usecase.js';
@@ -26,6 +29,10 @@ import { CommandController } from './presentation/command.controller.js';
       useClass: PrismaCommandRepository,
     },
     {
+      provide: AUDIT_EVENT_REPOSITORY,
+      useClass: PrismaAuditEventRepository,
+    },
+    {
       provide: PUSH_NOTIFICATION_PORT,
       useClass: FirebasePushAdapter,
     },
@@ -35,15 +42,25 @@ import { CommandController } from './presentation/command.controller.js';
         deviceRepo: DeviceRepository,
         commandRepo: CommandRepository,
         pushPort: PushNotificationPort,
+        auditRepo: AuditEventRepository,
         config: ConfigService,
       ) => {
         const ttl = config.get<number>('COMMAND_TTL_SECONDS', 120);
-        return new SendCommandUseCase(deviceRepo, commandRepo, pushPort, ttl);
+        const lockTtl = config.get<number>('LOCK_COMMAND_TTL_SECONDS', 60);
+        return new SendCommandUseCase(
+          deviceRepo,
+          commandRepo,
+          pushPort,
+          auditRepo,
+          ttl,
+          lockTtl,
+        );
       },
       inject: [
         DEVICE_REPOSITORY,
         COMMAND_REPOSITORY,
         PUSH_NOTIFICATION_PORT,
+        AUDIT_EVENT_REPOSITORY,
         ConfigService,
       ],
     },

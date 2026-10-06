@@ -55,6 +55,7 @@ model Device {
   mode            DeviceMode
   fcmToken        String?
   deviceTokenHash String?
+  adminEnabled    Boolean     @default(false)
   batteryLevel    Int?
   isCharging      Boolean?
   lastSeenAt      DateTime?
@@ -63,6 +64,7 @@ model Device {
 
   owner           User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   commands        Command[]
+  auditEvents     AuditEvent[]
 
   @@unique([ownerId, installId])
   @@index([ownerId])
@@ -74,6 +76,7 @@ enum CommandType {
   RING
   VIBRATE
   MESSAGE
+  LOCK
 }
 
 enum CommandStatus {
@@ -106,4 +109,21 @@ model Command {
   @@index([issuedById])
   @@index([status, expiresAt])
   @@map("commands")
+}
+
+model AuditEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  deviceId  String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_events")
 }

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -93,6 +94,9 @@ export class DeviceResponseDto {
   @ApiPropertyOptional({ example: 'fcm-token-sample' })
   fcmToken?: string | null;
 
+  @ApiProperty({ example: false })
+  adminEnabled!: boolean;
+
   @ApiPropertyOptional({ example: 85 })
   batteryLevel?: number | null;
 
@@ -110,6 +114,13 @@ export class DeviceResponseDto {
 
   @ApiProperty({ example: '2026-10-06T00:00:00.000Z' })
   updatedAt!: string;
+}
+
+export class UpdateDeviceCapabilitiesDto {
+  @ApiProperty({ example: true, description: 'Whether Device Admin privilege is active' })
+  @IsBoolean({ message: 'adminEnabled must be a boolean' })
+  @IsNotEmpty({ message: 'adminEnabled is required' })
+  adminEnabled!: boolean;
 }
 
 export class LinkDeviceResponseDto {

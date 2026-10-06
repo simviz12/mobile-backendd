@@ -272,4 +272,116 @@ describe('Commands Flow (e2e)', () => {
     expect(resPage2.body.items.length).toBe(1);
     expect(resPage2.body.items[0].id).not.toBe(resPage1.body.items[0].id);
   });
+
+  describe('Part 5: Capabilities & LOCK command', () => {
+    it('POST /devices/:id/commands - 409 CAPABILITY_NOT_AVAILABLE when LOCK attempted without adminEnabled', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({ type: 'LOCK' })
+        .expect(409);
+
+      expect(res.body.error.code).toBe('CAPABILITY_NOT_AVAILABLE');
+      expect(res.body.error.details).toEqual([{ capability: 'DEVICE_ADMIN' }]);
+    });
+
+    it('PATCH /devices/:id/capabilities - 401 UNAUTHORIZED when called without Device token', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/devices/${deviceAId}/capabilities`)
+        .send({ adminEnabled: true })
+        .expect(401);
+
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('PATCH /devices/:id/capabilities - 403 FORBIDDEN when called with mismatched device token', async () => {
+      // Register Device B
+      const linkB = await request(app.getHttpServer())
+        .post('/devices')
+        .set('Authorization', `Bearer ${userBToken}`)
+        .send({
+          installId: 'inst-dev-b',
+          name: 'Device B',
+          platform: 'android',
+          mode: 'PROTECTED',
+        });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/devices/${deviceAId}/capabilities`)
+        .set('Authorization', `Device ${linkB.body.deviceToken}`)
+        .send({ adminEnabled: true })
+        .expect(403);
+
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('PATCH /devices/:id/capabilities - 200 OK updates adminEnabled with valid Device token', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/devices/${deviceAId}/capabilities`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({ adminEnabled: true })
+        .expect(200);
+
+      expect(res.body.device.adminEnabled).toBe(true);
+
+      // Verify exposed in GET /devices/:id
+      const getRes = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(getRes.body.adminEnabled).toBe(true);
+    });
+
+    it('POST /devices/:id/commands - 400 VALIDATION_ERROR when LOCK sent with non-empty payload', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({
+          type: 'LOCK',
+          payload: { message: 'Lock phone now' },
+        })
+        .expect(400);
+
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('POST /devices/:id/commands - 201 Created dispatches LOCK when adminEnabled=true with shorter TTL', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({ type: 'LOCK' })
+        .expect(201);
+
+      expect(res.body.type).toBe('LOCK');
+      expect(res.body.status).toBe('SENT');
+      expect(res.body.payload).toBeNull();
+
+      // Check that expiresAt is ~60s from createdAt
+      const created = new Date(res.body.createdAt).getTime();
+      const expires = new Date(res.body.expiresAt).getTime();
+      const ttlSec = Math.round((expires - created) / 1000);
+      expect(ttlSec).toBe(60);
+
+      // Check that AuditEvent was written in the database
+      const audit = await prisma.auditEvent.findFirst({
+        where: {
+          deviceId: deviceAId,
+          action: 'COMMAND_LOCK_ISSUED',
+        },
+      });
+      expect(audit).toBeDefined();
+      expect(audit?.userId).toBeDefined();
+    });
+
+    it('POST /devices/:id/commands - 404 DEVICE_NOT_FOUND when user B tries to issue LOCK to user A device', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userBToken}`)
+        .send({ type: 'LOCK' })
+        .expect(404);
+
+      expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
+    });
+  });
 });

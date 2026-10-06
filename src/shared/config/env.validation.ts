@@ -49,6 +49,9 @@ export class EnvironmentVariables {
 
   @IsNumber()
   COMMAND_TTL_SECONDS: number = 120;
+
+  @IsNumber()
+  LOCK_COMMAND_TTL_SECONDS: number = 60;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

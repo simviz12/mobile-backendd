@@ -3,6 +3,8 @@ import { DeviceMode } from '../../devices/domain/device.entity.js';
 import { Command, CommandStatus, CommandType } from '../domain/command.entity.js';
 import { CommandRepository } from '../domain/command.repository.js';
 import { PushNotificationPort } from '../domain/push-notification.port.js';
+import { AuditEventRepository } from '../domain/audit-event.repository.js';
+import { AuditEvent } from '../domain/audit-event.entity.js';
 import { CommandPayloadValidator } from './command-payload.validator.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { randomUUID } from 'crypto';
@@ -19,7 +21,9 @@ export class SendCommandUseCase {
     private readonly deviceRepository: DeviceRepository,
     private readonly commandRepository: CommandRepository,
     private readonly pushNotificationPort: PushNotificationPort,
+    private readonly auditEventRepository: AuditEventRepository,
     private readonly commandTtlSeconds: number,
+    private readonly lockCommandTtlSeconds: number = 60,
   ) {}
 
   async execute(input: SendCommandInput): Promise<Command> {
@@ -39,6 +43,16 @@ export class SendCommandUseCase {
       );
     }
 
+    // Capability check: LOCK requires adminEnabled=true
+    if (input.type === CommandType.LOCK && !device.adminEnabled) {
+      throw new AppError(
+        'CAPABILITY_NOT_AVAILABLE',
+        'Target device does not have required capability',
+        409,
+        [{ capability: 'DEVICE_ADMIN' }],
+      );
+    }
+
     // Must have an fcmToken
     if (!device.fcmToken) {
       throw new AppError(
@@ -51,21 +65,45 @@ export class SendCommandUseCase {
     // Domain/Application validation for payload according to command type
     const validatedPayload = CommandPayloadValidator.validate(input.type, input.payload);
 
+    // TTL: LOCK uses lockCommandTtlSeconds, others use commandTtlSeconds
+    const ttlSeconds =
+      input.type === CommandType.LOCK
+        ? this.lockCommandTtlSeconds
+        : this.commandTtlSeconds;
+
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + this.commandTtlSeconds * 1000);
+    const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
 
     const command = Command.create({
       id: randomUUID(),
       deviceId: device.id,
       issuedById: input.callerUserId,
       type: input.type,
-      payload: validatedPayload as Record<string, any>,
+      payload: (validatedPayload as Record<string, any>) ?? null,
       status: CommandStatus.PENDING,
       createdAt: now,
       expiresAt,
     });
 
     const savedPending = await this.commandRepository.create(command);
+
+    // Audit trail: write AuditEvent for every LOCK issued
+    if (input.type === CommandType.LOCK) {
+      await this.auditEventRepository.create(
+        AuditEvent.create({
+          id: randomUUID(),
+          userId: input.callerUserId,
+          deviceId: device.id,
+          action: 'COMMAND_LOCK_ISSUED',
+          metadata: {
+            commandId: savedPending.id,
+            ttlSeconds,
+            expiresAt: expiresAt.toISOString(),
+          },
+          createdAt: now,
+        }),
+      );
+    }
 
     // Push notification delivery
     const pushResult = await this.pushNotificationPort.sendDataMessage({
@@ -74,7 +112,7 @@ export class SendCommandUseCase {
       type: input.type,
       payloadString: JSON.stringify(savedPending.payload ?? {}),
       issuedAt: now.toISOString(),
-      ttlSeconds: this.commandTtlSeconds,
+      ttlSeconds,
     });
 
     if (pushResult.success) {

@@ -49,7 +49,10 @@ describe('SendRingCommandUseCase (Unit Tests)', () => {
     pushPort = {
       sendDataMessage: vi.fn(),
     };
-    sendCommandUseCase = new SendCommandUseCase(deviceRepo, commandRepo, pushPort, 120);
+    const auditRepo = {
+      create: vi.fn().mockImplementation(async (e) => e),
+    };
+    sendCommandUseCase = new SendCommandUseCase(deviceRepo, commandRepo, pushPort, auditRepo as any, 120, 60);
     useCase = new SendRingCommandUseCase(sendCommandUseCase);
   });
 

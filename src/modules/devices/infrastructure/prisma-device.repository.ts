@@ -20,6 +20,7 @@ export class PrismaDeviceRepository implements DeviceRepository {
       mode: raw.mode as DeviceMode,
       fcmToken: raw.fcmToken,
       deviceTokenHash: raw.deviceTokenHash,
+      adminEnabled: raw.adminEnabled,
       batteryLevel: raw.batteryLevel,
       isCharging: raw.isCharging,
       lastSeenAt: raw.lastSeenAt,
@@ -96,6 +97,7 @@ export class PrismaDeviceRepository implements DeviceRepository {
         name: device.name,
         fcmToken: device.fcmToken,
         deviceTokenHash: device.deviceTokenHash,
+        adminEnabled: device.adminEnabled,
         updatedAt: device.updatedAt,
       },
     });
