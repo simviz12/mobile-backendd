@@ -15,6 +15,7 @@ model User {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   refreshTokens RefreshToken[]
+  devices       Device[]
 
   @@map("users")
 }
@@ -34,4 +35,35 @@ model RefreshToken {
   @@index([userId])
   @@index([tokenHash])
   @@map("refresh_tokens")
+}
+
+enum DeviceMode {
+  PROTECTED
+  CONTROLLER
+}
+
+model Device {
+  id              String      @id @default(uuid())
+  ownerId         String
+  installId       String
+  name            String
+  platform        String
+  model           String?
+  osVersion       String?
+  appVersion      String?
+  mode            DeviceMode
+  fcmToken        String?
+  deviceTokenHash String?
+  batteryLevel    Int?
+  isCharging      Boolean?
+  lastSeenAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  owner           User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, installId])
+  @@index([ownerId])
+  @@index([deviceTokenHash])
+  @@map("devices")
 }

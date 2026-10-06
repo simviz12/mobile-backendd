@@ -104,6 +104,104 @@ paths:
         - bearer: []
       summary: Get current authenticated user profile
       tags: *a1
+  /devices:
+    post:
+      operationId: DeviceController_linkDevice
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkDeviceDto"
+      responses:
+        "200":
+          description: Existing installation updated and new device token rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkDeviceResponseDto"
+        "201":
+          description: Device linked for the first time
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkDeviceResponseDto"
+      security: &a2
+        - bearer: []
+      summary: Link or re-link a mobile device to the authenticated user account
+      tags: &a3
+        - Devices
+    get:
+      operationId: DeviceController_listDevices
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListDevicesResponseDto"
+      security: *a2
+      summary: List all devices belonging to the authenticated user (newest first)
+      tags: *a3
+  /devices/{id}:
+    get:
+      operationId: DeviceController_getDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponseDto"
+      security: *a2
+      summary: Get details of a specific device belonging to the user
+      tags: *a3
+    patch:
+      operationId: DeviceController_updateDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponseDto"
+      security: *a2
+      summary: Update device details (name, fcmToken)
+      tags: *a3
+    delete:
+      operationId: DeviceController_unlinkDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      security: *a2
+      summary: Unlink and delete a device, invalidating its device token
+      tags: *a3
 info:
   title: Guardian Mobile API
   description: Remote Anti-Theft Protection System for Android Phones
@@ -261,3 +359,134 @@ components:
         - email
         - displayName
         - createdAt
+    LinkDeviceDto:
+      type: object
+      properties:
+        installId:
+          type: string
+          example: install-uuid-12345
+        name:
+          type: string
+          example: My Pixel 8 Pro
+        platform:
+          type: string
+          example: android
+          enum:
+            - android
+            - ios
+        model:
+          type: string
+          example: Pixel 8 Pro
+        osVersion:
+          type: string
+          example: Android 14
+        appVersion:
+          type: string
+          example: 1.0.0
+        mode:
+          type: string
+          enum:
+            - PROTECTED
+            - CONTROLLER
+          example: PROTECTED
+        fcmToken:
+          type: string
+          example: fcm-registration-token-sample
+      required:
+        - installId
+        - name
+        - platform
+        - mode
+    DeviceResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: c028a39a-7964-42b7-a36e-5264b3017a52
+        ownerId:
+          type: string
+          example: u123...
+        installId:
+          type: string
+          example: install-uuid-12345
+        name:
+          type: string
+          example: My Pixel 8 Pro
+        platform:
+          type: string
+          example: android
+        model:
+          type: object
+          example: Pixel 8 Pro
+        osVersion:
+          type: object
+          example: Android 14
+        appVersion:
+          type: object
+          example: 1.0.0
+        mode:
+          type: string
+          enum:
+            - PROTECTED
+            - CONTROLLER
+          example: PROTECTED
+        fcmToken:
+          type: object
+          example: fcm-token-sample
+        batteryLevel:
+          type: object
+          example: 85
+        isCharging:
+          type: object
+          example: false
+        lastSeenAt:
+          type: object
+          example: null
+        isOnline:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          example: 2026-10-06T00:00:00.000Z
+        updatedAt:
+          type: string
+          example: 2026-10-06T00:00:00.000Z
+      required:
+        - id
+        - ownerId
+        - installId
+        - name
+        - platform
+        - mode
+        - isOnline
+        - createdAt
+        - updatedAt
+    LinkDeviceResponseDto:
+      type: object
+      properties:
+        device:
+          $ref: "#/components/schemas/DeviceResponseDto"
+        deviceToken:
+          type: string
+          example: d9b736b...256bit-token
+      required:
+        - device
+        - deviceToken
+    ListDevicesResponseDto:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceResponseDto"
+      required:
+        - devices
+    UpdateDeviceDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Renamed Phone
+        fcmToken:
+          type: string
+          example: fcm-new-token

@@ -39,6 +39,9 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty({ message: 'JWT_REFRESH_TTL is required' })
   JWT_REFRESH_TTL!: string;
+
+  @IsNumber()
+  HEARTBEAT_TIMEOUT_SECONDS: number = 300;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
