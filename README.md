@@ -77,6 +77,7 @@ npm run test:e2e
 - Endpoint Documentation:
   - `docs/api/part-0.md` (Health)
   - `docs/api/part-1.md` (Authentication & Sessions)
+  - `docs/api/part-2.md` (Devices Management)
 
 ---
 
@@ -91,6 +92,20 @@ npm run test:e2e
   - `POST /auth/refresh`: Session refresh & token rotation
   - `POST /auth/logout`: Revoke session
   - `GET /auth/me`: Authenticated user profile
+
+---
+
+## 📱 Devices Management (Part 2)
+- **Device Token**: 256-bit high-entropy token generated on link, hashed with SHA-256 (`deviceTokenHash`). Returned only once to the client.
+- **Independent Device Auth**: Header `Authorization: Device <deviceToken>` for decoupled device-originated operations.
+- **Strict Ownership**: Requests to resources belonging to another user strictly return `404 DEVICE_NOT_FOUND` without leaking existence.
+- **Presence Tracking**: `isOnline` dynamically evaluated based on `(now - lastSeenAt) <= HEARTBEAT_TIMEOUT_SECONDS` (default 300s).
+- **Endpoints**:
+  - `POST /devices`: Link or re-link a mobile device (idempotent for same installId, rotates token)
+  - `GET /devices`: List caller's devices (newest first)
+  - `GET /devices/:id`: Get device details
+  - `PATCH /devices/:id`: Rename or update FCM token
+  - `DELETE /devices/:id`: Unlink device and invalidate device token
 
 ---
 
