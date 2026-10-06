@@ -28,6 +28,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       code = exception.code;
       message = exception.message;
       details = exception.details;
+    } else if (
+      exception instanceof Error &&
+      (exception.name === 'DomainError' || 'code' in exception)
+    ) {
+      status = HttpStatus.CONFLICT;
+      code = (exception as any).code || 'DOMAIN_RULE_VIOLATION';
+      message = exception.message;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();

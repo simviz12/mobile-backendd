@@ -105,7 +105,7 @@ export class Device {
     return diffSeconds <= heartbeatTimeoutSeconds && diffSeconds >= 0;
   }
 
-  updateDetails(params: { name?: string; fcmToken?: string }): void {
+  updateDetails(params: { name?: string; fcmToken?: string | null }): void {
     if (params.name !== undefined) {
       this.props.name = params.name.trim();
     }

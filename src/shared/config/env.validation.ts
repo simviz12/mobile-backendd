@@ -42,6 +42,13 @@ export class EnvironmentVariables {
 
   @IsNumber()
   HEARTBEAT_TIMEOUT_SECONDS: number = 300;
+
+  @IsString()
+  @IsNotEmpty({ message: 'FIREBASE_SERVICE_ACCOUNT_PATH is required' })
+  FIREBASE_SERVICE_ACCOUNT_PATH!: string;
+
+  @IsNumber()
+  COMMAND_TTL_SECONDS: number = 120;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

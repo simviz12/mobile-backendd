@@ -7,7 +7,9 @@ import { PrismaModule } from './shared/prisma/prisma.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { ScheduleModule } from '@nestjs/schedule';
 import { DevicesModule } from './modules/devices/devices.module.js';
+import { CommandsModule } from './modules/commands/commands.module.js';
 
 @Module({
   imports: [
@@ -15,6 +17,7 @@ import { DevicesModule } from './modules/devices/devices.module.js';
       isGlobal: true,
       validate: validateEnv,
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -26,6 +29,7 @@ import { DevicesModule } from './modules/devices/devices.module.js';
     UsersModule,
     AuthModule,
     DevicesModule,
+    CommandsModule,
   ],
   providers: [
     {
