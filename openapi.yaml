@@ -14,6 +14,96 @@ paths:
       summary: Check API service and database health status
       tags:
         - Health
+  /auth/register:
+    post:
+      operationId: AuthController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponseDto"
+      summary: Register a new user account
+      tags: &a1
+        - Auth
+  /auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponseDto"
+      summary: Authenticate user with email and password
+      tags: *a1
+  /auth/refresh:
+    post:
+      operationId: AuthController_refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponseDto"
+      summary: Rotate refresh token and get a new access token
+      tags: *a1
+  /auth/logout:
+    post:
+      operationId: AuthController_logout
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Logout and revoke refresh token session
+      tags: *a1
+  /auth/me:
+    get:
+      operationId: AuthController_me
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserProfileDto"
+      security:
+        - bearer: []
+      summary: Get current authenticated user profile
+      tags: *a1
 info:
   title: Guardian Mobile API
   description: Remote Anti-Theft Protection System for Android Phones
@@ -55,3 +145,119 @@ components:
         - version
         - time
         - database
+    RegisterDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          example: Secret123!
+        displayName:
+          type: string
+          example: Alex Developer
+      required:
+        - email
+        - password
+        - displayName
+    UserResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 0c72e...
+        email:
+          type: string
+          example: user@example.com
+        displayName:
+          type: string
+          example: Alex Developer
+      required:
+        - id
+        - email
+        - displayName
+    AuthResponseDto:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserResponseDto"
+        accessToken:
+          type: string
+          example: eyJhbGciOi...
+        refreshToken:
+          type: string
+          example: 8f7d92...
+        expiresIn:
+          type: number
+          example: 900
+      required:
+        - user
+        - accessToken
+        - refreshToken
+        - expiresIn
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          example: Secret123!
+      required:
+        - email
+        - password
+    RefreshDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: d3f6a2...
+      required:
+        - refreshToken
+    RefreshResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOi...
+        refreshToken:
+          type: string
+          example: 8f7d92...
+        expiresIn:
+          type: number
+          example: 900
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+    LogoutDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: d3f6a2...
+      required:
+        - refreshToken
+    CurrentUserProfileDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 0c72e...
+        email:
+          type: string
+          example: user@example.com
+        displayName:
+          type: string
+          example: Alex Developer
+        createdAt:
+          format: date-time
+          type: string
+          example: 2026-10-06T00:00:00.000Z
+      required:
+        - id
+        - email
+        - displayName
+        - createdAt

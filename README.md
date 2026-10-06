@@ -74,7 +74,23 @@ npm run test:e2e
 ## 📖 API Documentation & Swagger
 - Interactive Swagger UI: `http://localhost:3000/docs`
 - Exported OpenAPI Specification: `openapi.yaml` in the repository root
-- Endpoint Documentation: `docs/api/part-0.md`
+- Endpoint Documentation:
+  - `docs/api/part-0.md` (Health)
+  - `docs/api/part-1.md` (Authentication & Sessions)
+
+---
+
+## 🔐 Authentication & Session Security (Part 1)
+- **Password Hashing**: `argon2id`
+- **Access Tokens**: Short-lived JWTs (default `15m`)
+- **Refresh Tokens**: Rotating opaque high-entropy tokens with SHA-256 storage and reuse detection.
+- **Rate Limiting**: 10 requests / minute per IP on sensitive authentication routes (`@nestjs/throttler`).
+- **Endpoints**:
+  - `POST /auth/register`: User sign-up (email, password, displayName)
+  - `POST /auth/login`: User sign-in
+  - `POST /auth/refresh`: Session refresh & token rotation
+  - `POST /auth/logout`: Revoke session
+  - `GET /auth/me`: Authenticated user profile
 
 ---
 
