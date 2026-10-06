@@ -1,5 +1,7 @@
 export enum CommandType {
   RING = 'RING',
+  VIBRATE = 'VIBRATE',
+  MESSAGE = 'MESSAGE',
 }
 
 export enum CommandStatus {

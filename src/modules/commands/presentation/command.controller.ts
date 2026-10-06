@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard.js';
 import { CurrentUser } from '../../auth/presentation/current-user.decorator.js';
 import type { JwtValidatedUser } from '../../auth/infrastructure/jwt.strategy.js';
 import { DeviceAuthGuard } from '../../devices/presentation/device-auth.guard.js';
+import { SendCommandUseCase } from '../application/send-command.usecase.js';
 import { SendRingCommandUseCase } from '../application/send-ring-command.usecase.js';
 import { ListDeviceCommandsUseCase } from '../application/list-device-commands.usecase.js';
 import { GetCommandUseCase } from '../application/get-command.usecase.js';
@@ -29,12 +30,15 @@ import {
   AckCommandDto,
   CommandResponseDto,
   CreateCommandDto,
+  ListCommandsQueryDto,
+  PaginatedCommandsResponseDto,
 } from './command.dto.js';
 
 @ApiTags('Commands')
 @Controller()
 export class CommandController {
   constructor(
+    private readonly sendCommandUseCase: SendCommandUseCase,
     private readonly sendRingCommandUseCase: SendRingCommandUseCase,
     private readonly listDeviceCommandsUseCase: ListDeviceCommandsUseCase,
     private readonly getCommandUseCase: GetCommandUseCase,
@@ -45,17 +49,18 @@ export class CommandController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Issue a remote command (RING) to a protected device' })
+  @ApiOperation({ summary: 'Issue a remote command (RING, VIBRATE, MESSAGE) to a protected device' })
   @ApiResponse({ status: 201, type: CommandResponseDto })
   async sendCommand(
     @Param('id') deviceId: string,
     @CurrentUser() user: JwtValidatedUser,
     @Body() dto: CreateCommandDto,
   ): Promise<CommandResponseDto> {
-    const cmd = await this.sendRingCommandUseCase.execute({
+    const cmd = await this.sendCommandUseCase.execute({
       deviceId,
       callerUserId: user.userId,
-      durationSeconds: dto.payload?.durationSeconds,
+      type: dto.type,
+      payload: dto.payload,
     });
     return cmd.toResponse();
   }
@@ -64,20 +69,25 @@ export class CommandController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List commands for a device (newest first)' })
-  @ApiResponse({ status: 200, type: [CommandResponseDto] })
+  @ApiOperation({ summary: 'List commands for a device with cursor pagination and optional filters' })
+  @ApiResponse({ status: 200, type: PaginatedCommandsResponseDto })
   async listCommands(
     @Param('id') deviceId: string,
     @CurrentUser() user: JwtValidatedUser,
-    @Query('limit') limit?: string,
-  ): Promise<CommandResponseDto[]> {
-    const parsedLimit = limit ? parseInt(limit, 10) : 20;
-    const list = await this.listDeviceCommandsUseCase.execute(
+    @Query() query: ListCommandsQueryDto,
+  ): Promise<PaginatedCommandsResponseDto> {
+    const result = await this.listDeviceCommandsUseCase.execute({
       deviceId,
-      user.userId,
-      parsedLimit,
-    );
-    return list.map((c) => c.toResponse());
+      callerUserId: user.userId,
+      limit: query.limit,
+      cursor: query.cursor,
+      status: query.status,
+      type: query.type,
+    });
+    return {
+      items: result.items.map((c) => c.toResponse()),
+      nextCursor: result.nextCursor,
+    };
   }
 
   @Get('commands/:id')

@@ -109,15 +109,16 @@ describe('Commands Flow (e2e)', () => {
     commandId = res.body.id;
   });
 
-  it('GET /devices/:id/commands - 200 OK lists commands of that device', async () => {
+  it('GET /devices/:id/commands - 200 OK lists commands of that device with cursor pagination', async () => {
     const res = await request(app.getHttpServer())
       .get(`/devices/${deviceAId}/commands`)
       .set('Authorization', `Bearer ${userAToken}`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThanOrEqual(1);
-    expect(res.body[0].id).toBe(commandId);
+    expect(res.body).toHaveProperty('items');
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.items[0].id).toBe(commandId);
   });
 
   it('GET /commands/:id - 200 OK returns command for issuer', async () => {
@@ -177,5 +178,98 @@ describe('Commands Flow (e2e)', () => {
       .expect(200);
 
     expect(reAck.body.status).toBe('EXECUTED');
+  });
+
+  it('POST /devices/:id/commands - 201 Created for VIBRATE command', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'VIBRATE',
+        payload: { durationSeconds: 15 },
+      })
+      .expect(201);
+
+    expect(res.body.type).toBe('VIBRATE');
+    expect(res.body.status).toBe('SENT');
+    expect(res.body.payload).toEqual({ durationSeconds: 15 });
+  });
+
+  it('POST /devices/:id/commands - 201 Created for MESSAGE command', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'MESSAGE',
+        payload: {
+          text: 'Found phone, contact me',
+          contactPhone: '+573001234567',
+        },
+      })
+      .expect(201);
+
+    expect(res.body.type).toBe('MESSAGE');
+    expect(res.body.status).toBe('SENT');
+    expect(res.body.payload).toEqual({
+      text: 'Found phone, contact me',
+      contactPhone: '+573001234567',
+    });
+  });
+
+  it('POST /devices/:id/commands - 400 VALIDATION_ERROR on invalid VIBRATE payload', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'VIBRATE',
+        payload: { durationSeconds: 60 },
+      })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details).toBeDefined();
+  });
+
+  it('POST /devices/:id/commands - 400 VALIDATION_ERROR on invalid MESSAGE payload (>200 chars)', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'MESSAGE',
+        payload: { text: 'X'.repeat(201) },
+      })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details).toBeDefined();
+  });
+
+  it('GET /devices/:id/commands - pagination and filters', async () => {
+    // Query with filter type=MESSAGE
+    const resType = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands?type=MESSAGE`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(resType.body.items.length).toBeGreaterThanOrEqual(1);
+    expect(resType.body.items.every((c: any) => c.type === 'MESSAGE')).toBe(true);
+
+    // Query with limit=1
+    const resPage1 = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands?limit=1`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(resPage1.body.items.length).toBe(1);
+    expect(resPage1.body.nextCursor).toBeDefined();
+
+    // Query second page using cursor
+    const resPage2 = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands?limit=1&cursor=${resPage1.body.nextCursor}`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(resPage2.body.items.length).toBe(1);
+    expect(resPage2.body.items[0].id).not.toBe(resPage1.body.items[0].id);
   });
 });

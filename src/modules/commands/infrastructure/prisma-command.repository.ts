@@ -32,13 +32,56 @@ export class PrismaCommandRepository implements CommandRepository {
     return this.toDomain(raw);
   }
 
-  async findAllByDeviceId(deviceId: string, limit: number = 20): Promise<Command[]> {
+  async findAllByDeviceId(
+    deviceId: string,
+    filter?: { status?: string; type?: string; limit?: number; cursor?: string },
+  ): Promise<{ items: Command[]; nextCursor: string | null }> {
+    const limit = filter?.limit ?? 20;
+    const where: any = { deviceId };
+
+    if (filter?.status) {
+      where.status = filter.status as CommandStatus;
+    }
+
+    if (filter?.type) {
+      where.type = filter.type as CommandType;
+    }
+
+    let cursorId: string | undefined = undefined;
+    if (filter?.cursor) {
+      try {
+        const decoded = Buffer.from(filter.cursor, 'base64').toString('utf8');
+        cursorId = decoded;
+      } catch {
+        cursorId = filter.cursor;
+      }
+    }
+
     const rows = await this.prisma.command.findMany({
-      where: { deviceId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
+      where,
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+      ...(cursorId
+        ? {
+            cursor: { id: cursorId },
+            skip: 1,
+          }
+        : {}),
     });
-    return rows.map((r) => this.toDomain(r));
+
+    let nextCursor: string | null = null;
+    let items = rows;
+
+    if (rows.length > limit) {
+      items = rows.slice(0, limit);
+      const lastItem = items[items.length - 1];
+      nextCursor = Buffer.from(lastItem.id, 'utf8').toString('base64');
+    }
+
+    return {
+      items: items.map((r) => this.toDomain(r)),
+      nextCursor,
+    };
   }
 
   async findExpiredPendingOrSent(now: Date): Promise<Command[]> {

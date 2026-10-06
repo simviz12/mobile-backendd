@@ -226,7 +226,7 @@ paths:
                 $ref: "#/components/schemas/CommandResponseDto"
       security:
         - bearer: []
-      summary: Issue a remote command (RING) to a protected device
+      summary: Issue a remote command (RING, VIBRATE, MESSAGE) to a protected device
       tags: &a4
         - Commands
     get:
@@ -238,22 +238,55 @@ paths:
           schema:
             type: string
         - name: limit
-          required: true
+          required: false
           in: query
+          description: Number of items to return (1..50)
+          schema:
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+            type: number
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor for pagination
+          schema:
+            example: eyJpZCI6IjEyMyJ9
+            type: string
+        - name: status
+          required: false
+          in: query
+          description: Filter by command status
           schema:
             type: string
+            enum:
+              - PENDING
+              - SENT
+              - DELIVERED
+              - EXECUTED
+              - FAILED
+              - EXPIRED
+        - name: type
+          required: false
+          in: query
+          description: Filter by command type
+          schema:
+            type: string
+            enum:
+              - RING
+              - VIBRATE
+              - MESSAGE
       responses:
         "200":
           description: ""
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CommandResponseDto"
+                $ref: "#/components/schemas/PaginatedCommandsResponseDto"
       security:
         - bearer: []
-      summary: List commands for a device (newest first)
+      summary: List commands for a device with cursor pagination and optional filters
       tags: *a4
   /commands/{id}:
     get:
@@ -588,15 +621,6 @@ components:
         fcmToken:
           type: string
           example: fcm-new-token
-    RingPayloadDto:
-      type: object
-      properties:
-        durationSeconds:
-          type: number
-          example: 30
-          minimum: 5
-          maximum: 60
-          default: 30
     CreateCommandDto:
       type: object
       properties:
@@ -604,9 +628,17 @@ components:
           type: string
           enum:
             - RING
+            - VIBRATE
+            - MESSAGE
           example: RING
+          description: Type of remote command (RING, VIBRATE, MESSAGE)
         payload:
-          $ref: "#/components/schemas/RingPayloadDto"
+          type: object
+          description: "Payload specific to the command type. RING: {durationSeconds:
+            5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200,
+            contactPhone?: string}."
+          example:
+            durationSeconds: 30
       required:
         - type
     CommandResponseDto:
@@ -625,6 +657,8 @@ components:
           type: string
           enum:
             - RING
+            - VIBRATE
+            - MESSAGE
           example: RING
         payload:
           type: object
@@ -666,6 +700,20 @@ components:
         - status
         - createdAt
         - expiresAt
+    PaginatedCommandsResponseDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommandResponseDto"
+        nextCursor:
+          type: object
+          example: c123...
+          nullable: true
+          description: Opaque cursor for the next page, or null if no further pages
+      required:
+        - items
     AckCommandDto:
       type: object
       properties:

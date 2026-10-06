@@ -109,8 +109,12 @@ npm run test:e2e
 
 ---
 
-## ⚡ Commands Pipeline & FCM Delivery (Part 3)
-- **Asynchronous Command Flow**: Dispatches commands (`RING`) to `PROTECTED` devices via Firebase Cloud Messaging (FCM).
+## ⚡ Commands Pipeline & FCM Delivery (Part 3 & Part 4)
+- **Supported Command Types**:
+  - `RING`: Payload `{ durationSeconds: 5..60 }` (default 30).
+  - `VIBRATE`: Payload `{ durationSeconds: 1..30 }` (default 5).
+  - `MESSAGE`: Payload `{ text: 1..200 chars (trimmed, plain text), contactPhone?: string (5..20 digits and optional '+') }`.
+- **Domain Validation**: Per-type payload validation strictly enforced in domain/application layer (`CommandPayloadValidator`).
 - **Push Notification Architecture**:
   - Clean Architecture `PushNotificationPort` decoupled from Firebase Admin SDK.
   - Data-only high-priority FCM messages (`android.priority: "high"`, TTL matching command expiration).
@@ -119,9 +123,12 @@ npm run test:e2e
   - States: `PENDING` -> `SENT` -> `DELIVERED` -> `EXECUTED`. Failures transition to `FAILED`.
   - Non-final commands expire automatically via background cron job (`@Cron('*/30 * * * * *')`) if `expiresAt < now`.
   - Device daemon acknowledges receipt and execution via `POST /commands/:id/ack` using `Authorization: Device <token>`.
+- **Cursor Pagination & Filters**:
+  - `GET /devices/:id/commands` supports cursor pagination (`?limit=1..50`, `?cursor=...`) and filtering by `?status=...` and `?type=...`.
+  - Response structure: `{ items: [...], nextCursor: string | null }`.
 - **Endpoints**:
-  - `POST /devices/:id/commands`: Issue command (e.g., `{"type":"RING","payload":{"durationSeconds":30}}`)
-  - `GET /devices/:id/commands`: List commands issued for a device
+  - `POST /devices/:id/commands`: Issue command (`RING`, `VIBRATE`, `MESSAGE`)
+  - `GET /devices/:id/commands`: List commands issued for a device with cursor pagination & filters
   - `GET /commands/:id`: Get status and timestamps of an individual command
   - `POST /commands/:id/ack`: Device acknowledgment (`DELIVERED`, `EXECUTED`, or `FAILED`)
 
