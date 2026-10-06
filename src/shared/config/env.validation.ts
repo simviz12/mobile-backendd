@@ -1,0 +1,67 @@
+import { plainToInstance } from 'class-transformer';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  validateSync,
+} from 'class-validator';
+
+export enum Environment {
+  Development = 'development',
+  Production = 'production',
+  Test = 'test',
+}
+
+export class EnvironmentVariables {
+  @IsNumber()
+  PORT: number = 3000;
+
+  @IsEnum(Environment)
+  NODE_ENV: Environment = Environment.Development;
+
+  @IsString()
+  @IsNotEmpty({ message: 'DATABASE_URL is required' })
+  DATABASE_URL!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'JWT_ACCESS_SECRET is required' })
+  JWT_ACCESS_SECRET!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'JWT_REFRESH_SECRET is required' })
+  JWT_REFRESH_SECRET!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'JWT_ACCESS_TTL is required' })
+  JWT_ACCESS_TTL!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'JWT_REFRESH_TTL is required' })
+  JWT_REFRESH_TTL!: string;
+}
+
+export function validateEnv(config: Record<string, unknown>) {
+  const validatedConfig = plainToInstance(EnvironmentVariables, config, {
+    enableImplicitConversion: true,
+  });
+
+  const errors = validateSync(validatedConfig, {
+    skipMissingProperties: false,
+  });
+
+  if (errors.length > 0) {
+    const errorDetails = errors
+      .map((err) => {
+        const constraints = Object.values(err.constraints || {}).join(', ');
+        return `  - ${err.property}: ${constraints}`;
+      })
+      .join('\n');
+
+    throw new Error(
+      `\n❌ Configuration validation error. Missing or invalid environment variables:\n${errorDetails}\nPlease check your .env file against .env.example.\n`,
+    );
+  }
+
+  return validatedConfig;
+}

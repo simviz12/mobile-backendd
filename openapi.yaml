@@ -1,0 +1,57 @@
+openapi: 3.0.0
+paths:
+  /health:
+    get:
+      operationId: HealthController_getHealth
+      parameters: []
+      responses:
+        "200":
+          description: Health status response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponseDto"
+      summary: Check API service and database health status
+      tags:
+        - Health
+info:
+  title: Guardian Mobile API
+  description: Remote Anti-Theft Protection System for Android Phones
+  version: 0.0.1
+  contact: {}
+tags:
+  - name: Health
+    description: System and database health monitoring
+servers: []
+components:
+  schemas:
+    HealthResponseDto:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+          enum:
+            - ok
+            - error
+        service:
+          type: string
+          example: guardian-api
+        version:
+          type: string
+          example: 0.0.1
+        time:
+          type: string
+          example: 2026-10-05T23:50:00.000Z
+        database:
+          type: string
+          example: up
+          enum:
+            - up
+            - down
+      required:
+        - status
+        - service
+        - version
+        - time
+        - database

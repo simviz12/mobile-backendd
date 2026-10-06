@@ -1,0 +1,85 @@
+# Guardian Mobile - Backend API
+
+Legitimate remote anti-theft system for Android phones.
+
+---
+
+## 🏗 Architecture & Design
+- **Framework**: NestJS (TypeScript, Strict Mode)
+- **Database**: PostgreSQL 16 + Prisma ORM
+- **Clean Architecture Pattern**:
+  - `src/modules/<feature>/domain`: Pure business entities and port interfaces (zero framework dependencies).
+  - `src/modules/<feature>/application`: Use cases orchestrating domain rules.
+  - `src/modules/<feature>/infrastructure`: Adapters, Prisma database repositories, external integrations.
+  - `src/modules/<feature>/presentation`: Controllers and DTOs with validation and Swagger documentation.
+  - `src/shared`: Global exception filters, environment validation, logging interceptors, Prisma service.
+
+---
+
+## 🚀 How to Run From Zero (PowerShell)
+
+### 1. Prerequisites
+- Docker Desktop running on Windows
+- Node.js 20+ (Node 22 recommended)
+- Git
+
+### 2. Setup Environment
+```powershell
+# Copy environment template
+Copy-Item .env.example .env
+
+# Install project dependencies
+npm install
+```
+
+### 3. Start Database (PostgreSQL 16)
+```powershell
+docker compose up -d
+```
+
+### 4. Run Migrations & Generate Prisma Client
+```powershell
+npm run db:migrate
+```
+
+### 5. Start Server
+```powershell
+# Development watch mode
+npm run start:dev
+
+# Production build & run
+npm run build
+npm run start:prod
+```
+
+The API will listen on `0.0.0.0:3000` (allowing mobile connection via LAN or `adb reverse tcp:3000 tcp:3000`).
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+```powershell
+# Linting
+npm run lint
+
+# Unit tests
+npm test
+
+# End-to-End (E2E) tests
+npm run test:e2e
+```
+
+---
+
+## 📖 API Documentation & Swagger
+- Interactive Swagger UI: `http://localhost:3000/docs`
+- Exported OpenAPI Specification: `openapi.yaml` in the repository root
+- Endpoint Documentation: `docs/api/part-0.md`
+
+---
+
+## 🌿 GitFlow Branching Model
+- `main`: Production-ready releases.
+- `develop`: Integration branch for active development.
+- `feature/part-N-<name>`: Vertical slice feature branch branched from `develop`.
+- Direct pushes to `main` and `develop` are strictly prohibited (except repository bootstrap). Merges require PR approval.
