@@ -6,10 +6,13 @@ import { PushNotificationPort } from '../domain/push-notification.port.js';
 import { Device, DeviceMode } from '../../devices/domain/device.entity.js';
 import { CommandStatus, CommandType } from '../domain/command.entity.js';
 
+import { SendCommandUseCase } from './send-command.usecase.js';
+
 describe('SendRingCommandUseCase (Unit Tests)', () => {
   let deviceRepo: DeviceRepository;
   let commandRepo: CommandRepository;
   let pushPort: PushNotificationPort;
+  let sendCommandUseCase: SendCommandUseCase;
   let useCase: SendRingCommandUseCase;
 
   const createProtectedDevice = (fcmToken?: string) => {
@@ -46,7 +49,8 @@ describe('SendRingCommandUseCase (Unit Tests)', () => {
     pushPort = {
       sendDataMessage: vi.fn(),
     };
-    useCase = new SendRingCommandUseCase(deviceRepo, commandRepo, pushPort, 120);
+    sendCommandUseCase = new SendCommandUseCase(deviceRepo, commandRepo, pushPort, 120);
+    useCase = new SendRingCommandUseCase(sendCommandUseCase);
   });
 
   it('should successfully send RING command and transition to SENT', async () => {

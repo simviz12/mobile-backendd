@@ -72,6 +72,8 @@ model Device {
 
 enum CommandType {
   RING
+  VIBRATE
+  MESSAGE
 }
 
 enum CommandStatus {

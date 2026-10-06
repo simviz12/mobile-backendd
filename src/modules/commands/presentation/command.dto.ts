@@ -6,31 +6,69 @@ import {
   IsString,
   Max,
   Min,
-  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CommandStatus, CommandType } from '../domain/command.entity.js';
 
-export class RingPayloadDto {
-  @ApiPropertyOptional({ example: 30, minimum: 5, maximum: 60, default: 30 })
-  @IsOptional()
-  @IsInt()
-  @Min(5, { message: 'durationSeconds must be at least 5' })
-  @Max(60, { message: 'durationSeconds must not exceed 60' })
-  durationSeconds?: number = 30;
-}
-
 export class CreateCommandDto {
-  @ApiProperty({ enum: CommandType, example: CommandType.RING })
-  @IsEnum(CommandType, { message: 'type must be a valid CommandType (RING)' })
+  @ApiProperty({
+    enum: CommandType,
+    example: CommandType.RING,
+    description: 'Type of remote command (RING, VIBRATE, MESSAGE)',
+  })
+  @IsEnum(CommandType, {
+    message: 'type must be a valid CommandType (RING, VIBRATE, MESSAGE)',
+  })
   type!: CommandType;
 
-  @ApiPropertyOptional({ type: RingPayloadDto })
+  @ApiPropertyOptional({
+    description:
+      'Payload specific to the command type. RING: {durationSeconds: 5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200, contactPhone?: string}.',
+    example: { durationSeconds: 30 },
+  })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => RingPayloadDto)
-  payload?: RingPayloadDto;
+  payload?: any;
+}
+
+export class ListCommandsQueryDto {
+  @ApiPropertyOptional({
+    example: 20,
+    minimum: 1,
+    maximum: 50,
+    default: 20,
+    description: 'Number of items to return (1..50)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number = 20;
+
+  @ApiPropertyOptional({
+    example: 'eyJpZCI6IjEyMyJ9',
+    description: 'Opaque cursor for pagination',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional({
+    enum: CommandStatus,
+    description: 'Filter by command status',
+  })
+  @IsOptional()
+  @IsEnum(CommandStatus)
+  status?: CommandStatus;
+
+  @ApiPropertyOptional({
+    enum: CommandType,
+    description: 'Filter by command type',
+  })
+  @IsOptional()
+  @IsEnum(CommandType)
+  type?: CommandType;
 }
 
 export class AckCommandDto {
@@ -85,4 +123,16 @@ export class CommandResponseDto {
 
   @ApiProperty({ example: '2026-10-06T12:02:00.000Z' })
   expiresAt!: string;
+}
+
+export class PaginatedCommandsResponseDto {
+  @ApiProperty({ type: [CommandResponseDto] })
+  items!: CommandResponseDto[];
+
+  @ApiPropertyOptional({
+    example: 'c123...',
+    nullable: true,
+    description: 'Opaque cursor for the next page, or null if no further pages',
+  })
+  nextCursor!: string | null;
 }

@@ -9,6 +9,7 @@ import { PUSH_NOTIFICATION_PORT } from './domain/push-notification.port.js';
 import { FirebasePushAdapter } from './infrastructure/firebase-push.adapter.js';
 import { CommandRepository } from './domain/command.repository.js';
 import { PushNotificationPort } from './domain/push-notification.port.js';
+import { SendCommandUseCase } from './application/send-command.usecase.js';
 import { SendRingCommandUseCase } from './application/send-ring-command.usecase.js';
 import { ListDeviceCommandsUseCase } from './application/list-device-commands.usecase.js';
 import { GetCommandUseCase } from './application/get-command.usecase.js';
@@ -29,7 +30,7 @@ import { CommandController } from './presentation/command.controller.js';
       useClass: FirebasePushAdapter,
     },
     {
-      provide: SendRingCommandUseCase,
+      provide: SendCommandUseCase,
       useFactory: (
         deviceRepo: DeviceRepository,
         commandRepo: CommandRepository,
@@ -37,7 +38,7 @@ import { CommandController } from './presentation/command.controller.js';
         config: ConfigService,
       ) => {
         const ttl = config.get<number>('COMMAND_TTL_SECONDS', 120);
-        return new SendRingCommandUseCase(deviceRepo, commandRepo, pushPort, ttl);
+        return new SendCommandUseCase(deviceRepo, commandRepo, pushPort, ttl);
       },
       inject: [
         DEVICE_REPOSITORY,
@@ -45,6 +46,12 @@ import { CommandController } from './presentation/command.controller.js';
         PUSH_NOTIFICATION_PORT,
         ConfigService,
       ],
+    },
+    {
+      provide: SendRingCommandUseCase,
+      useFactory: (sendCommandUseCase: SendCommandUseCase) =>
+        new SendRingCommandUseCase(sendCommandUseCase),
+      inject: [SendCommandUseCase],
     },
     {
       provide: ListDeviceCommandsUseCase,
@@ -70,6 +77,6 @@ import { CommandController } from './presentation/command.controller.js';
     },
     CommandExpiryJob,
   ],
-  exports: [COMMAND_REPOSITORY, PUSH_NOTIFICATION_PORT],
+  exports: [COMMAND_REPOSITORY, PUSH_NOTIFICATION_PORT, SendCommandUseCase],
 })
 export class CommandsModule {}
