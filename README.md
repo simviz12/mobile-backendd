@@ -109,8 +109,27 @@ npm run test:e2e
 
 ---
 
+## ⚡ Commands Pipeline & FCM Delivery (Part 3)
+- **Asynchronous Command Flow**: Dispatches commands (`RING`) to `PROTECTED` devices via Firebase Cloud Messaging (FCM).
+- **Push Notification Architecture**:
+  - Clean Architecture `PushNotificationPort` decoupled from Firebase Admin SDK.
+  - Data-only high-priority FCM messages (`android.priority: "high"`, TTL matching command expiration).
+  - Invalid FCM tokens automatically cleared on delivery failure (`DEVICE_NOT_REACHABLE`).
+- **Command State Machine**:
+  - States: `PENDING` -> `SENT` -> `DELIVERED` -> `EXECUTED`. Failures transition to `FAILED`.
+  - Non-final commands expire automatically via background cron job (`@Cron('*/30 * * * * *')`) if `expiresAt < now`.
+  - Device daemon acknowledges receipt and execution via `POST /commands/:id/ack` using `Authorization: Device <token>`.
+- **Endpoints**:
+  - `POST /devices/:id/commands`: Issue command (e.g., `{"type":"RING","payload":{"durationSeconds":30}}`)
+  - `GET /devices/:id/commands`: List commands issued for a device
+  - `GET /commands/:id`: Get status and timestamps of an individual command
+  - `POST /commands/:id/ack`: Device acknowledgment (`DELIVERED`, `EXECUTED`, or `FAILED`)
+
+---
+
 ## 🌿 GitFlow Branching Model
 - `main`: Production-ready releases.
 - `develop`: Integration branch for active development.
 - `feature/part-N-<name>`: Vertical slice feature branch branched from `develop`.
 - Direct pushes to `main` and `develop` are strictly prohibited (except repository bootstrap). Merges require PR approval.
+

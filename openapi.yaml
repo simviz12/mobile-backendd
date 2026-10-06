@@ -202,6 +202,104 @@ paths:
       security: *a2
       summary: Unlink and delete a device, invalidating its device token
       tags: *a3
+  /devices/{id}/commands:
+    post:
+      operationId: CommandController_sendCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommandDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponseDto"
+      security:
+        - bearer: []
+      summary: Issue a remote command (RING) to a protected device
+      tags: &a4
+        - Commands
+    get:
+      operationId: CommandController_listCommands
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommandResponseDto"
+      security:
+        - bearer: []
+      summary: List commands for a device (newest first)
+      tags: *a4
+  /commands/{id}:
+    get:
+      operationId: CommandController_getCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponseDto"
+      security:
+        - bearer: []
+      summary: Get command status by ID
+      tags: *a4
+  /commands/{id}/ack:
+    post:
+      operationId: CommandController_ackCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AckCommandDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponseDto"
+      summary: "Acknowledge command delivery/execution from target device
+        (Authorization: Device <token>)"
+      tags: *a4
 info:
   title: Guardian Mobile API
   description: Remote Anti-Theft Protection System for Android Phones
@@ -490,3 +588,96 @@ components:
         fcmToken:
           type: string
           example: fcm-new-token
+    RingPayloadDto:
+      type: object
+      properties:
+        durationSeconds:
+          type: number
+          example: 30
+          minimum: 5
+          maximum: 60
+          default: 30
+    CreateCommandDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - RING
+          example: RING
+        payload:
+          $ref: "#/components/schemas/RingPayloadDto"
+      required:
+        - type
+    CommandResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: c123...
+        deviceId:
+          type: string
+          example: d123...
+        issuedById:
+          type: string
+          example: u123...
+        type:
+          type: string
+          enum:
+            - RING
+          example: RING
+        payload:
+          type: object
+          example:
+            durationSeconds: 30
+        status:
+          type: string
+          enum:
+            - PENDING
+            - SENT
+            - DELIVERED
+            - EXECUTED
+            - FAILED
+            - EXPIRED
+          example: SENT
+        failureReason:
+          type: object
+          example: null
+        createdAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        sentAt:
+          type: object
+          example: 2026-10-06T12:00:01.000Z
+        deliveredAt:
+          type: object
+          example: null
+        executedAt:
+          type: object
+          example: null
+        expiresAt:
+          type: string
+          example: 2026-10-06T12:02:00.000Z
+      required:
+        - id
+        - deviceId
+        - issuedById
+        - type
+        - status
+        - createdAt
+        - expiresAt
+    AckCommandDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - DELIVERED
+            - EXECUTED
+            - FAILED
+          example: DELIVERED
+        reason:
+          type: string
+          example: Sound played successfully
+      required:
+        - status

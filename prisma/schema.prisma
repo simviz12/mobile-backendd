@@ -8,14 +8,15 @@ generator client {
 }
 
 model User {
-  id           String         @id @default(uuid())
-  email        String         @unique
-  passwordHash String
-  displayName  String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  displayName   String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
   devices       Device[]
+  issuedCommands Command[]     @relation("IssuedCommands")
 
   @@map("users")
 }
@@ -61,9 +62,46 @@ model Device {
   updatedAt       DateTime    @updatedAt
 
   owner           User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  commands        Command[]
 
   @@unique([ownerId, installId])
   @@index([ownerId])
   @@index([deviceTokenHash])
   @@map("devices")
+}
+
+enum CommandType {
+  RING
+}
+
+enum CommandStatus {
+  PENDING
+  SENT
+  DELIVERED
+  EXECUTED
+  FAILED
+  EXPIRED
+}
+
+model Command {
+  id            String        @id @default(uuid())
+  deviceId      String
+  issuedById    String
+  type          CommandType
+  payload       Json?
+  status        CommandStatus @default(PENDING)
+  failureReason String?
+  createdAt     DateTime      @default(now())
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  executedAt    DateTime?
+  expiresAt     DateTime
+
+  device        Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  issuedBy      User          @relation("IssuedCommands", fields: [issuedById], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([issuedById])
+  @@index([status, expiresAt])
+  @@map("commands")
 }
