@@ -3,6 +3,7 @@ export enum CommandType {
   VIBRATE = 'VIBRATE',
   MESSAGE = 'MESSAGE',
   LOCK = 'LOCK',
+  LOCATE = 'LOCATE',
 }
 
 export enum CommandStatus {

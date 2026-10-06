@@ -65,9 +65,9 @@ export class SendCommandUseCase {
     // Domain/Application validation for payload according to command type
     const validatedPayload = CommandPayloadValidator.validate(input.type, input.payload);
 
-    // TTL: LOCK uses lockCommandTtlSeconds, others use commandTtlSeconds
+    // TTL: LOCK and LOCATE use lockCommandTtlSeconds (60s), others use commandTtlSeconds
     const ttlSeconds =
-      input.type === CommandType.LOCK
+      input.type === CommandType.LOCK || input.type === CommandType.LOCATE
         ? this.lockCommandTtlSeconds
         : this.commandTtlSeconds;
 
@@ -87,14 +87,19 @@ export class SendCommandUseCase {
 
     const savedPending = await this.commandRepository.create(command);
 
-    // Audit trail: write AuditEvent for every LOCK issued
-    if (input.type === CommandType.LOCK) {
+    // Audit trail: write AuditEvent for every LOCK or LOCATE issued
+    if (input.type === CommandType.LOCK || input.type === CommandType.LOCATE) {
+      const action =
+        input.type === CommandType.LOCK
+          ? 'COMMAND_LOCK_ISSUED'
+          : 'COMMAND_LOCATE_ISSUED';
+
       await this.auditEventRepository.create(
         AuditEvent.create({
           id: randomUUID(),
           userId: input.callerUserId,
           deviceId: device.id,
-          action: 'COMMAND_LOCK_ISSUED',
+          action,
           metadata: {
             commandId: savedPending.id,
             ttlSeconds,

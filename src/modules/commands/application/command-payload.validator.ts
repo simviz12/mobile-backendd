@@ -22,8 +22,8 @@ export type ValidatedCommandPayload =
 
 export class CommandPayloadValidator {
   static validate(type: CommandType, payload: any): ValidatedCommandPayload {
-    if (type === CommandType.LOCK) {
-      return this.validateLock(payload);
+    if (type === CommandType.LOCK || type === CommandType.LOCATE) {
+      return this.validateNoPayload(type, payload);
     }
 
     const raw = payload ?? {};
@@ -45,10 +45,10 @@ export class CommandPayloadValidator {
     }
   }
 
-  private static validateLock(payload: any): null {
+  private static validateNoPayload(type: CommandType, payload: any): null {
     if (payload !== undefined && payload !== null && Object.keys(payload).length > 0) {
       throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, [
-        'LOCK command does not accept a payload',
+        `${type} command does not accept a payload`,
       ]);
     }
     return null;

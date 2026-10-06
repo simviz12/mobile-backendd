@@ -384,4 +384,165 @@ describe('Commands Flow (e2e)', () => {
       expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
     });
   });
+
+  describe('Part 6: Locations & LOCATE command flow', () => {
+    let locateCmdId: string;
+
+    it('POST /devices/:id/commands - 201 Created dispatches LOCATE command with 60s TTL and writes AuditEvent', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({ type: 'LOCATE' })
+        .expect(201);
+
+      expect(res.body.type).toBe('LOCATE');
+      expect(res.body.status).toBe('SENT');
+      expect(res.body.payload).toBeNull();
+      locateCmdId = res.body.id;
+
+      const created = new Date(res.body.createdAt).getTime();
+      const expires = new Date(res.body.expiresAt).getTime();
+      expect(Math.round((expires - created) / 1000)).toBe(60);
+
+      const audit = await prisma.auditEvent.findFirst({
+        where: {
+          deviceId: deviceAId,
+          action: 'COMMAND_LOCATE_ISSUED',
+        },
+      });
+      expect(audit).toBeDefined();
+    });
+
+    it('POST /devices/:id/locations - 401 UNAUTHORIZED when called without Device token', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .send({
+          latitude: 4.6097,
+          longitude: -74.0817,
+          recordedAt: new Date().toISOString(),
+          source: 'LOCATE_COMMAND',
+        })
+        .expect(401);
+
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('POST /devices/:id/locations - 403 FORBIDDEN when called with mismatched device token', async () => {
+      // Register Device C with different token
+      const linkC = await request(app.getHttpServer())
+        .post('/devices')
+        .set('Authorization', `Bearer ${userBToken}`)
+        .send({
+          installId: 'inst-dev-c',
+          name: 'Device C',
+          platform: 'android',
+          mode: 'PROTECTED',
+        });
+
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .set('Authorization', `Device ${linkC.body.deviceToken}`)
+        .send({
+          latitude: 4.6097,
+          longitude: -74.0817,
+          recordedAt: new Date().toISOString(),
+          source: 'LOCATE_COMMAND',
+        })
+        .expect(403);
+
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('POST /devices/:id/locations - 201 Created records location and answers LOCATE command', async () => {
+      const now = new Date();
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({
+          latitude: 4.60971,
+          longitude: -74.08175,
+          accuracyMeters: 8.5,
+          speedMps: 0.5,
+          recordedAt: now.toISOString(),
+          source: 'LOCATE_COMMAND',
+        })
+        .expect(201);
+
+      expect(res.body.latitude).toBe(4.60971);
+      expect(res.body.longitude).toBe(-74.08175);
+      expect(res.body.source).toBe('LOCATE_COMMAND');
+
+      // Device acks command as EXECUTED
+      const ackRes = await request(app.getHttpServer())
+        .post(`/commands/${locateCmdId}/ack`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({ status: 'EXECUTED' })
+        .expect(200);
+
+      expect(ackRes.body.status).toBe('EXECUTED');
+    });
+
+    it('POST /devices/:id/locations - 201 Created handles batch offline sync up to 50 items', async () => {
+      const now = Date.now();
+      const batch = Array.from({ length: 5 }, (_, i) => ({
+        latitude: 4.61 + i * 0.001,
+        longitude: -74.08 - i * 0.001,
+        accuracyMeters: 10,
+        speedMps: 1.0,
+        recordedAt: new Date(now - (5 - i) * 60 * 1000).toISOString(),
+        source: 'PERIODIC',
+      }));
+
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({ locations: batch })
+        .expect(201);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(5);
+    });
+
+    it('GET /devices/:id/locations/latest - 200 OK returns latest location to owner', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}/locations/latest`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(res.body.deviceId).toBe(deviceAId);
+      expect(res.body.latitude).toBeDefined();
+      expect(res.body.longitude).toBeDefined();
+    });
+
+    it('GET /devices/:id/locations/latest - 404 DEVICE_NOT_FOUND when requested by unauthorized user', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}/locations/latest`)
+        .set('Authorization', `Bearer ${userBToken}`)
+        .expect(404);
+
+      expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
+    });
+
+    it('GET /devices/:id/locations - 200 OK returns location history with range filtering', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}/locations?limit=10`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('GET /devices/:id - 200 OK exposes lastLocation in device response', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(res.body.lastLocation).toBeDefined();
+      expect(res.body.lastLocation).not.toBeNull();
+      expect(res.body.lastLocation.latitude).toBeDefined();
+      expect(res.body.lastLocation.longitude).toBeDefined();
+    });
+  });
 });

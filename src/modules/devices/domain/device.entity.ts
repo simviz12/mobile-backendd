@@ -3,6 +3,13 @@ export enum DeviceMode {
   CONTROLLER = 'CONTROLLER',
 }
 
+export interface LastLocationSummary {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number | null;
+  recordedAt: string;
+}
+
 export interface DeviceProps {
   id: string;
   ownerId: string;
@@ -21,6 +28,7 @@ export interface DeviceProps {
   lastSeenAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  lastLocation?: LastLocationSummary | null;
 }
 
 export class Device {
@@ -78,6 +86,10 @@ export class Device {
     return this.props.adminEnabled ?? false;
   }
 
+  get lastLocation(): LastLocationSummary | null | undefined {
+    return this.props.lastLocation;
+  }
+
   get batteryLevel(): number | null | undefined {
     return this.props.batteryLevel;
   }
@@ -125,6 +137,10 @@ export class Device {
     this.props.updatedAt = new Date();
   }
 
+  setLastLocation(lastLocation: LastLocationSummary | null): void {
+    this.props.lastLocation = lastLocation;
+  }
+
   updateDeviceTokenHash(hash: string): void {
     this.props.deviceTokenHash = hash;
     this.props.updatedAt = new Date();
@@ -152,6 +168,7 @@ export class Device {
       isCharging: this.isCharging ?? null,
       lastSeenAt: this.lastSeenAt ? this.lastSeenAt.toISOString() : null,
       isOnline: this.isOnline(heartbeatTimeoutSeconds, now),
+      lastLocation: this.props.lastLocation ?? null,
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
     };

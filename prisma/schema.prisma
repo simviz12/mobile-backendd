@@ -65,6 +65,7 @@ model Device {
   owner           User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   commands        Command[]
   auditEvents     AuditEvent[]
+  locations       Location[]
 
   @@unique([ownerId, installId])
   @@index([ownerId])
@@ -77,6 +78,7 @@ enum CommandType {
   VIBRATE
   MESSAGE
   LOCK
+  LOCATE
 }
 
 enum CommandStatus {
@@ -126,4 +128,28 @@ model AuditEvent {
   @@index([action])
   @@index([createdAt])
   @@map("audit_events")
+}
+
+enum LocationSource {
+  LOCATE_COMMAND
+  PERIODIC
+  THEFT_MODE
+}
+
+model Location {
+  id             String         @id @default(uuid())
+  deviceId       String
+  latitude       Float
+  longitude      Float
+  accuracyMeters Float?
+  speedMps       Float?
+  recordedAt     DateTime
+  receivedAt     DateTime       @default(now())
+  source         LocationSource
+
+  device         Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, recordedAt(sort: Desc)])
+  @@index([recordedAt])
+  @@map("locations")
 }

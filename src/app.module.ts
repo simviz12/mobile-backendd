@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DevicesModule } from './modules/devices/devices.module.js';
 import { CommandsModule } from './modules/commands/commands.module.js';
+import { LocationsModule } from './modules/locations/locations.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CommandsModule } from './modules/commands/commands.module.js';
     AuthModule,
     DevicesModule,
     CommandsModule,
+    LocationsModule,
   ],
   providers: [
     {

@@ -255,8 +255,8 @@ paths:
                 $ref: "#/components/schemas/CommandResponseDto"
       security:
         - bearer: []
-      summary: Issue a remote command (RING, VIBRATE, MESSAGE, LOCK) to a protected
-        device
+      summary: Issue a remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE) to a
+        protected device
       tags: &a3
         - Commands
     get:
@@ -308,6 +308,7 @@ paths:
               - VIBRATE
               - MESSAGE
               - LOCK
+              - LOCATE
       responses:
         "200":
           description: ""
@@ -364,6 +365,96 @@ paths:
       summary: "Acknowledge command delivery/execution from target device
         (Authorization: Device <token>)"
       tags: *a3
+  /devices/{id}/locations:
+    post:
+      operationId: LocationController_recordLocation
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostLocationDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LocationResponseDto"
+      summary: "Record device location (single or batch up to 50 items)
+        (Authorization: Device <token>)"
+      tags: &a4
+        - Locations
+    get:
+      operationId: LocationController_listLocations
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: from
+          required: false
+          in: query
+          schema:
+            example: 2026-10-06T00:00:00.000Z
+            type: string
+        - name: to
+          required: false
+          in: query
+          schema:
+            example: 2026-10-06T23:59:59.000Z
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 500
+            default: 50
+            example: 50
+            type: number
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LocationResponseDto"
+      security:
+        - bearer: []
+      summary: Get location history for a device (newest first, max 500)
+      tags: *a4
+  /devices/{id}/locations/latest:
+    get:
+      operationId: LocationController_getLatestLocation
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationResponseDto"
+      security:
+        - bearer: []
+      summary: Get latest recorded location for a device
+      tags: *a4
 info:
   title: Guardian Mobile API
   description: Remote Anti-Theft Protection System for Android Phones
@@ -610,6 +701,14 @@ components:
         isOnline:
           type: boolean
           example: false
+        lastLocation:
+          type: object
+          example:
+            latitude: 4.6097
+            longitude: -74.0817
+            accuracyMeters: 10.5
+            recordedAt: 2026-10-06T12:00:00.000Z
+          nullable: true
         createdAt:
           type: string
           example: 2026-10-06T00:00:00.000Z
@@ -675,13 +774,14 @@ components:
             - VIBRATE
             - MESSAGE
             - LOCK
+            - LOCATE
           example: RING
-          description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK)
+          description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE)
         payload:
           type: object
           description: "Payload specific to the command type. RING: {durationSeconds:
             5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200,
-            contactPhone?: string}. LOCK: no payload allowed."
+            contactPhone?: string}. LOCK/LOCATE: no payload allowed."
           example:
             durationSeconds: 30
       required:
@@ -705,6 +805,7 @@ components:
             - VIBRATE
             - MESSAGE
             - LOCK
+            - LOCATE
           example: RING
         payload:
           type: object
@@ -775,3 +876,111 @@ components:
           example: Sound played successfully
       required:
         - status
+    SingleLocationDto:
+      type: object
+      properties:
+        latitude:
+          type: number
+          example: 4.60971
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          example: -74.08175
+          minimum: -180
+          maximum: 180
+        accuracyMeters:
+          type: number
+          example: 12.5
+        speedMps:
+          type: number
+          example: 1.2
+        recordedAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        source:
+          type: string
+          enum:
+            - LOCATE_COMMAND
+            - PERIODIC
+            - THEFT_MODE
+          example: LOCATE_COMMAND
+      required:
+        - latitude
+        - longitude
+        - recordedAt
+        - source
+    PostLocationDto:
+      type: object
+      properties:
+        latitude:
+          type: number
+          example: 4.60971
+        longitude:
+          type: number
+          example: -74.08175
+        accuracyMeters:
+          type: number
+          example: 12.5
+        speedMps:
+          type: number
+          example: 1.2
+        recordedAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        source:
+          type: string
+          enum:
+            - LOCATE_COMMAND
+            - PERIODIC
+            - THEFT_MODE
+          example: LOCATE_COMMAND
+        locations:
+          description: Batch array up to 50 locations
+          type: array
+          items:
+            $ref: "#/components/schemas/SingleLocationDto"
+    LocationResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: loc-uuid
+        deviceId:
+          type: string
+          example: dev-uuid
+        latitude:
+          type: number
+          example: 4.60971
+        longitude:
+          type: number
+          example: -74.08175
+        accuracyMeters:
+          type: object
+          example: 12.5
+          nullable: true
+        speedMps:
+          type: object
+          example: 1.2
+          nullable: true
+        recordedAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        receivedAt:
+          type: string
+          example: 2026-10-06T12:00:01.000Z
+        source:
+          type: string
+          enum:
+            - LOCATE_COMMAND
+            - PERIODIC
+            - THEFT_MODE
+          example: LOCATE_COMMAND
+      required:
+        - id
+        - deviceId
+        - latitude
+        - longitude
+        - recordedAt
+        - receivedAt
+        - source

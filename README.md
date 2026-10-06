@@ -78,6 +78,10 @@ npm run test:e2e
   - `docs/api/part-0.md` (Health)
   - `docs/api/part-1.md` (Authentication & Sessions)
   - `docs/api/part-2.md` (Devices Management)
+  - `docs/api/part-3.md` (Commands Pipeline & FCM Delivery)
+  - `docs/api/part-4.md` (VIBRATE & MESSAGE Commands, Command History)
+  - `docs/api/part-5.md` (LOCK Command & Capabilities)
+  - `docs/api/part-6.md` (Locations & LOCATE Command)
 
 ---
 
@@ -100,6 +104,7 @@ npm run test:e2e
 - **Independent Device Auth**: Header `Authorization: Device <deviceToken>` for decoupled device-originated operations.
 - **Strict Ownership**: Requests to resources belonging to another user strictly return `404 DEVICE_NOT_FOUND` without leaking existence.
 - **Presence Tracking**: `isOnline` dynamically evaluated based on `(now - lastSeenAt) <= HEARTBEAT_TIMEOUT_SECONDS` (default 300s).
+- **Computed Last Location**: Every device response (`GET /devices`, `GET /devices/:id`) includes computed `lastLocation` `{ latitude, longitude, accuracyMeters, recordedAt }`.
 - **Endpoints**:
   - `POST /devices`: Link or re-link a mobile device (idempotent for same installId, rotates token)
   - `GET /devices`: List caller's devices (newest first)
@@ -109,12 +114,13 @@ npm run test:e2e
 
 ---
 
-## ⚡ Commands Pipeline & FCM Delivery (Part 3 & Part 4)
+## ⚡ Commands Pipeline & FCM Delivery (Part 3, Part 4 & Part 5)
 - **Supported Command Types**:
   - `RING`: Payload `{ durationSeconds: 5..60 }` (default 30).
   - `VIBRATE`: Payload `{ durationSeconds: 1..30 }` (default 5).
   - `MESSAGE`: Payload `{ text: 1..200 chars (trimmed, plain text), contactPhone?: string (5..20 digits and optional '+') }`.
   - `LOCK`: No payload allowed. Requires target device to have `adminEnabled === true` (otherwise `409 CAPABILITY_NOT_AVAILABLE`). Uses shorter TTL (`LOCK_COMMAND_TTL_SECONDS`, default 60s). Logs immutable `AuditEvent`.
+  - `LOCATE`: No payload allowed. 60-second TTL. Prompts device to acquire GPS and respond with `LOCATE_COMMAND` source location report and command acknowledgment. Logs immutable `AuditEvent` (`COMMAND_LOCATE_ISSUED`).
 - **Device Capabilities**:
   - `adminEnabled` boolean reported by hardware daemon via `PATCH /devices/:id/capabilities` (`Authorization: Device <token>`).
   - `adminEnabled` exposed in all device responses.
@@ -131,11 +137,30 @@ npm run test:e2e
   - `GET /devices/:id/commands` supports cursor pagination (`?limit=1..50`, `?cursor=...`) and filtering by `?status=...` and `?type=...`.
   - Response structure: `{ items: [...], nextCursor: string | null }`.
 - **Endpoints**:
-  - `POST /devices/:id/commands`: Issue command (`RING`, `VIBRATE`, `MESSAGE`, `LOCK`)
+  - `POST /devices/:id/commands`: Issue command (`RING`, `VIBRATE`, `MESSAGE`, `LOCK`, `LOCATE`)
   - `GET /devices/:id/commands`: List commands issued for a device with cursor pagination & filters
   - `GET /commands/:id`: Get status and timestamps of an individual command
   - `POST /commands/:id/ack`: Device acknowledgment (`DELIVERED`, `EXECUTED`, or `FAILED`)
   - `PATCH /devices/:id/capabilities`: Update device capabilities reported by device hardware daemon
+
+---
+
+## 📍 Locations & The LOCATE Command (Part 6)
+- **Device Location Reporting**:
+  - Single location or offline batch up to 50 items in one request (`POST /devices/:id/locations` with `Authorization: Device <token>`).
+  - Range validation: `latitude` in `[-90, 90]`, `longitude` in `[-180, 180]`.
+  - Rejection of timestamps > 5 minutes in future or > 24 hours old with `400 VALIDATION_ERROR`.
+  - Extensible source enum: `LOCATE_COMMAND`, `PERIODIC`, `THEFT_MODE`.
+- **Owner History & Latest Query**:
+  - `GET /devices/:id/locations?from=&to=&limit=`: Newest first, limit up to 500. Owner-only.
+  - `GET /devices/:id/locations/latest`: Immediate latest fix or `404 NO_LOCATION_YET`.
+- **Automated Retention Pruning**:
+  - Daily midnight cron (`LocationRetentionJob`) prunes records older than `LOCATION_RETENTION_DAYS` (default 30).
+- **Endpoints**:
+  - `POST /devices/:id/locations`: Post GPS location fix (single or batch)
+  - `GET /devices/:id/locations`: Query historical locations with time window & limit
+  - `GET /devices/:id/locations/latest`: Query latest location fix
+
 
 ---
 

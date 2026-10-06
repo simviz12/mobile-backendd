@@ -109,6 +109,22 @@ export class DeviceResponseDto {
   @ApiProperty({ example: false })
   isOnline!: boolean;
 
+  @ApiPropertyOptional({
+    example: {
+      latitude: 4.6097,
+      longitude: -74.0817,
+      accuracyMeters: 10.5,
+      recordedAt: '2026-10-06T12:00:00.000Z',
+    },
+    nullable: true,
+  })
+  lastLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters?: number | null;
+    recordedAt: string;
+  } | null;
+
   @ApiProperty({ example: '2026-10-06T00:00:00.000Z' })
   createdAt!: string;
 

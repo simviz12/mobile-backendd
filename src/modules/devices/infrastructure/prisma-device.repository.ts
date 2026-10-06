@@ -8,6 +8,17 @@ export class PrismaDeviceRepository implements DeviceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   private toDomain(raw: any): Device {
+    let lastLocation: any = null;
+    if (raw.locations && raw.locations.length > 0) {
+      const loc = raw.locations[0];
+      lastLocation = {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        accuracyMeters: loc.accuracyMeters,
+        recordedAt: loc.recordedAt instanceof Date ? loc.recordedAt.toISOString() : loc.recordedAt,
+      };
+    }
+
     return Device.create({
       id: raw.id,
       ownerId: raw.ownerId,
@@ -26,12 +37,19 @@ export class PrismaDeviceRepository implements DeviceRepository {
       lastSeenAt: raw.lastSeenAt,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
+      lastLocation,
     });
   }
 
   async findById(id: string): Promise<Device | null> {
     const raw = await this.prisma.device.findUnique({
       where: { id },
+      include: {
+        locations: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+      },
     });
     if (!raw) return null;
     return this.toDomain(raw);
@@ -45,6 +63,12 @@ export class PrismaDeviceRepository implements DeviceRepository {
           installId,
         },
       },
+      include: {
+        locations: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+      },
     });
     if (!raw) return null;
     return this.toDomain(raw);
@@ -53,6 +77,12 @@ export class PrismaDeviceRepository implements DeviceRepository {
   async findByTokenHash(deviceTokenHash: string): Promise<Device | null> {
     const raw = await this.prisma.device.findFirst({
       where: { deviceTokenHash },
+      include: {
+        locations: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+      },
     });
     if (!raw) return null;
     return this.toDomain(raw);
@@ -62,6 +92,12 @@ export class PrismaDeviceRepository implements DeviceRepository {
     const rows = await this.prisma.device.findMany({
       where: { ownerId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        locations: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+      },
     });
     return rows.map((r) => this.toDomain(r));
   }
