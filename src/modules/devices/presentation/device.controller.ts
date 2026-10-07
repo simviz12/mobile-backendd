@@ -28,8 +28,10 @@ import { GetDeviceUseCase } from '../application/get-device.usecase.js';
 import { UpdateDeviceUseCase } from '../application/update-device.usecase.js';
 import { UnlinkDeviceUseCase } from '../application/unlink-device.usecase.js';
 import { UpdateDeviceCapabilitiesUseCase } from '../application/update-device-capabilities.usecase.js';
+import { GetDeviceDiagnosticsUseCase } from '../application/get-device-diagnostics.usecase.js';
 import {
   DeviceResponseDto,
+  DiagnosticsResponseDto,
   LinkDeviceDto,
   LinkDeviceResponseDto,
   ListDevicesResponseDto,
@@ -49,6 +51,7 @@ export class DeviceController {
     private readonly updateDeviceUseCase: UpdateDeviceUseCase,
     private readonly unlinkDeviceUseCase: UnlinkDeviceUseCase,
     private readonly updateDeviceCapabilitiesUseCase: UpdateDeviceCapabilitiesUseCase,
+    private readonly getDeviceDiagnosticsUseCase: GetDeviceDiagnosticsUseCase,
   ) {}
 
   @Post()
@@ -121,6 +124,21 @@ export class DeviceController {
     return this.getDeviceUseCase.execute(id, user.userId);
   }
 
+  @Get(':id/diagnostics')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get comprehensive diagnostics and health problems for a device',
+  })
+  @ApiResponse({ status: 200, type: DiagnosticsResponseDto })
+  async getDiagnostics(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtValidatedUser,
+  ): Promise<DiagnosticsResponseDto> {
+    return this.getDeviceDiagnosticsUseCase.execute(id, user.userId);
+  }
+
   @Patch(':id/capabilities')
   @UseGuards(DeviceAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -138,6 +156,9 @@ export class DeviceController {
       deviceId: id,
       authenticatingDeviceId: authenticatingDevice.id,
       adminEnabled: dto.adminEnabled,
+      permissions: dto.permissions,
+      batteryLevel: dto.batteryLevel,
+      isCharging: dto.isCharging,
     });
   }
 

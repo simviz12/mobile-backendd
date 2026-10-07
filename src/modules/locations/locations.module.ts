@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { DevicesModule } from '../devices/devices.module.js';
 import { DEVICE_REPOSITORY, DeviceRepository } from '../devices/domain/device.repository.js';
 import { LOCATION_REPOSITORY, LocationRepository } from './domain/location.repository.js';
@@ -10,7 +10,7 @@ import { LocationRetentionJob } from './infrastructure/location-retention.job.js
 import { LocationController } from './presentation/location.controller.js';
 
 @Module({
-  imports: [DevicesModule],
+  imports: [forwardRef(() => DevicesModule)],
   controllers: [LocationController],
   providers: [
     {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DEVICE_REPOSITORY } from './domain/device.repository.js';
 import { PrismaDeviceRepository } from './infrastructure/prisma-device.repository.js';
@@ -10,12 +10,21 @@ import { GetDeviceUseCase } from './application/get-device.usecase.js';
 import { UpdateDeviceUseCase } from './application/update-device.usecase.js';
 import { UnlinkDeviceUseCase } from './application/unlink-device.usecase.js';
 import { UpdateDeviceCapabilitiesUseCase } from './application/update-device-capabilities.usecase.js';
+import { GetDeviceDiagnosticsUseCase } from './application/get-device-diagnostics.usecase.js';
 import { DeviceController } from './presentation/device.controller.js';
 import { DeviceAuthGuard } from './presentation/device-auth.guard.js';
 import { DeviceRepository } from './domain/device.repository.js';
 import { DeviceTokenGenerator } from './domain/device-token.generator.js';
+import { CommandsModule } from '../commands/commands.module.js';
+import { LocationsModule } from '../locations/locations.module.js';
+import { COMMAND_REPOSITORY, type CommandRepository } from '../commands/domain/command.repository.js';
+import { LOCATION_REPOSITORY, type LocationRepository } from '../locations/domain/location.repository.js';
 
 @Module({
+  imports: [
+    forwardRef(() => CommandsModule),
+    forwardRef(() => LocationsModule),
+  ],
   controllers: [DeviceController],
   providers: [
     {
@@ -76,6 +85,19 @@ import { DeviceTokenGenerator } from './domain/device-token.generator.js';
       },
       inject: [DEVICE_REPOSITORY, ConfigService],
     },
+    {
+      provide: GetDeviceDiagnosticsUseCase,
+      useFactory: (
+        devRepo: DeviceRepository,
+        cmdRepo: CommandRepository,
+        locRepo: LocationRepository,
+        config: ConfigService,
+      ) => {
+        const timeout = config.get<number>('HEARTBEAT_TIMEOUT_SECONDS', 300);
+        return new GetDeviceDiagnosticsUseCase(devRepo, cmdRepo, locRepo, timeout);
+      },
+      inject: [DEVICE_REPOSITORY, COMMAND_REPOSITORY, LOCATION_REPOSITORY, ConfigService],
+    },
   ],
   exports: [
     DEVICE_REPOSITORY,
@@ -85,3 +107,4 @@ import { DeviceTokenGenerator } from './domain/device-token.generator.js';
   ],
 })
 export class DevicesModule {}
+

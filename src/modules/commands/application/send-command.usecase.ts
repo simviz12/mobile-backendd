@@ -8,6 +8,7 @@ import { AuditEvent } from '../domain/audit-event.entity.js';
 import { CommandPayloadValidator } from './command-payload.validator.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { randomUUID } from 'crypto';
+import { Logger } from '@nestjs/common';
 
 export interface SendCommandInput {
   deviceId: string;
@@ -17,6 +18,8 @@ export interface SendCommandInput {
 }
 
 export class SendCommandUseCase {
+  private readonly logger = new Logger(SendCommandUseCase.name);
+
   constructor(
     private readonly deviceRepository: DeviceRepository,
     private readonly commandRepository: CommandRepository,
@@ -123,6 +126,7 @@ export class SendCommandUseCase {
     if (pushResult.success) {
       savedPending.markSent(new Date());
       await this.commandRepository.save(savedPending);
+      this.logger.log(`Command ${savedPending.id} of type ${savedPending.type} successfully dispatched to device ${device.id}. MessageId: ${pushResult.messageId}`);
       return savedPending;
     }
 
@@ -133,6 +137,7 @@ export class SendCommandUseCase {
 
       savedPending.markFailed('FCM_TOKEN_INVALID');
       await this.commandRepository.save(savedPending);
+      this.logger.error(`Command ${savedPending.id} failed delivery: invalid or unregistered FCM token on device ${device.id}`);
 
       throw new AppError(
         'DEVICE_NOT_REACHABLE',
@@ -144,6 +149,7 @@ export class SendCommandUseCase {
     // Other FCM error: mark FAILED
     savedPending.markFailed(pushResult.details || 'FCM_DELIVERY_FAILED');
     await this.commandRepository.save(savedPending);
+    this.logger.error(`Command ${savedPending.id} failed delivery: ${pushResult.details || pushResult.error} on device ${device.id}`);
 
     throw new AppError(
       'DEVICE_NOT_REACHABLE',

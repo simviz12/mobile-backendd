@@ -172,6 +172,53 @@ describe('Devices Flow (e2e)', () => {
     expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
   });
 
+  it('PATCH /devices/:id/capabilities - updates permissions, batteryLevel, isCharging', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/devices/${deviceAId}/capabilities`)
+      .set('Authorization', `Device ${deviceTokenA}`)
+      .send({
+        adminEnabled: true,
+        batteryLevel: 88,
+        isCharging: false,
+        permissions: {
+          notifications: true,
+          locationForeground: true,
+          locationBackground: true,
+          batteryOptimizationIgnored: true,
+          deviceAdmin: true,
+          fullScreenIntent: true,
+        },
+      })
+      .expect(200);
+
+    expect(res.body.device.adminEnabled).toBe(true);
+    expect(res.body.device.batteryLevel).toBe(88);
+    expect(res.body.device.isCharging).toBe(false);
+  });
+
+  it('GET /devices/:id/diagnostics - 404 for other user', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/diagnostics`)
+      .set('Authorization', `Bearer ${tokenUserB}`)
+      .expect(404);
+
+    expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
+  });
+
+  it('GET /devices/:id/diagnostics - 200 OK for owner with diagnostics structure', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/diagnostics`)
+      .set('Authorization', `Bearer ${tokenUserA}`)
+      .expect(200);
+
+    expect(res.body.hasFcmToken).toBe(true);
+    expect(res.body.hasDeviceToken).toBe(true);
+    expect(res.body.lastSeenAt).not.toBeNull();
+    expect(res.body.permissions.notifications).toBe(true);
+    expect(res.body.permissions.deviceAdmin).toBe(true);
+    expect(Array.isArray(res.body.problems)).toBe(true);
+  });
+
   it('PATCH /devices/:id - 200 OK for owner', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/devices/${deviceAId}`)

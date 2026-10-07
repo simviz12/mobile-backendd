@@ -10,6 +10,15 @@ export interface LastLocationSummary {
   recordedAt: string;
 }
 
+export interface DevicePermissions {
+  notifications?: boolean | null;
+  locationForeground?: boolean | null;
+  locationBackground?: boolean | null;
+  batteryOptimizationIgnored?: boolean | null;
+  deviceAdmin?: boolean | null;
+  fullScreenIntent?: boolean | null;
+}
+
 export interface DeviceProps {
   id: string;
   ownerId: string;
@@ -26,6 +35,7 @@ export interface DeviceProps {
   batteryLevel?: number | null;
   isCharging?: boolean | null;
   lastSeenAt?: Date | null;
+  permissions?: DevicePermissions | null;
   createdAt: Date;
   updatedAt: Date;
   lastLocation?: LastLocationSummary | null;
@@ -102,6 +112,10 @@ export class Device {
     return this.props.lastSeenAt;
   }
 
+  get permissions(): DevicePermissions | null | undefined {
+    return this.props.permissions;
+  }
+
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -122,6 +136,11 @@ export class Device {
     return diffSeconds <= heartbeatTimeoutSeconds && diffSeconds >= 0;
   }
 
+  recordHeartbeat(now: Date = new Date()): void {
+    this.props.lastSeenAt = now;
+    this.props.updatedAt = now;
+  }
+
   updateDetails(params: { name?: string; fcmToken?: string | null }): void {
     if (params.name !== undefined) {
       this.props.name = params.name.trim();
@@ -132,9 +151,30 @@ export class Device {
     this.props.updatedAt = new Date();
   }
 
-  updateCapabilities(capabilities: { adminEnabled: boolean }): void {
-    this.props.adminEnabled = capabilities.adminEnabled;
-    this.props.updatedAt = new Date();
+  updateCapabilities(capabilities: {
+    adminEnabled?: boolean;
+    permissions?: DevicePermissions | null;
+    batteryLevel?: number | null;
+    isCharging?: boolean | null;
+  }): void {
+    if (capabilities.adminEnabled !== undefined) {
+      this.props.adminEnabled = capabilities.adminEnabled;
+    }
+    if (capabilities.permissions !== undefined) {
+      this.props.permissions = {
+        ...this.props.permissions,
+        ...capabilities.permissions,
+      };
+    }
+    if (capabilities.batteryLevel !== undefined) {
+      this.props.batteryLevel = capabilities.batteryLevel;
+    }
+    if (capabilities.isCharging !== undefined) {
+      this.props.isCharging = capabilities.isCharging;
+    }
+    const now = new Date();
+    this.props.lastSeenAt = now;
+    this.props.updatedAt = now;
   }
 
   setLastLocation(lastLocation: LastLocationSummary | null): void {

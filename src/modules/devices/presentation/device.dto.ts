@@ -2,11 +2,16 @@ import {
   IsBoolean,
   IsEnum,
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Length,
+  Max,
+  Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DeviceMode } from '../domain/device.entity.js';
 
@@ -132,11 +137,61 @@ export class DeviceResponseDto {
   updatedAt!: string;
 }
 
+export class DevicePermissionsDto {
+  @ApiPropertyOptional({ example: true, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  notifications?: boolean | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  locationForeground?: boolean | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  locationBackground?: boolean | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  batteryOptimizationIgnored?: boolean | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  deviceAdmin?: boolean | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  fullScreenIntent?: boolean | null;
+}
+
 export class UpdateDeviceCapabilitiesDto {
-  @ApiProperty({ example: true, description: 'Whether Device Admin privilege is active' })
+  @ApiPropertyOptional({ example: true, description: 'Whether Device Admin privilege is active' })
+  @IsOptional()
   @IsBoolean({ message: 'adminEnabled must be a boolean' })
-  @IsNotEmpty({ message: 'adminEnabled is required' })
-  adminEnabled!: boolean;
+  adminEnabled?: boolean;
+
+  @ApiPropertyOptional({ type: DevicePermissionsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DevicePermissionsDto)
+  permissions?: DevicePermissionsDto;
+
+  @ApiPropertyOptional({ example: 85, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  batteryLevel?: number | null;
+
+  @ApiPropertyOptional({ example: false, nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isCharging?: boolean | null;
 }
 
 export class LinkDeviceResponseDto {
@@ -150,4 +205,44 @@ export class LinkDeviceResponseDto {
 export class ListDevicesResponseDto {
   @ApiProperty({ type: [DeviceResponseDto] })
   devices!: DeviceResponseDto[];
+}
+
+export class DiagnosticsLastCommandDto {
+  @ApiProperty({ example: 'VIBRATE' })
+  type!: string;
+
+  @ApiProperty({ example: 'EXPIRED' })
+  status!: string;
+
+  @ApiPropertyOptional({ example: 'COMMAND_EXPIRED', nullable: true })
+  failureReason!: string | null;
+
+  @ApiProperty({ example: '2026-10-07T16:42:05.355Z' })
+  at!: string;
+}
+
+export class DiagnosticsResponseDto {
+  @ApiProperty({ example: true })
+  hasFcmToken!: boolean;
+
+  @ApiProperty({ example: true })
+  hasDeviceToken!: boolean;
+
+  @ApiPropertyOptional({ example: '2026-10-07T16:00:00.000Z', nullable: true })
+  lastSeenAt!: string | null;
+
+  @ApiPropertyOptional({ example: '2026-10-07T16:00:00.000Z', nullable: true })
+  lastStatusAt!: string | null;
+
+  @ApiPropertyOptional({ example: '2026-10-07T16:00:00.000Z', nullable: true })
+  lastLocationAt!: string | null;
+
+  @ApiPropertyOptional({ type: DiagnosticsLastCommandDto, nullable: true })
+  lastCommand!: DiagnosticsLastCommandDto | null;
+
+  @ApiProperty({ type: DevicePermissionsDto })
+  permissions!: DevicePermissionsDto;
+
+  @ApiProperty({ example: ['NO_HEARTBEAT', 'NO_LOCATION'], type: [String] })
+  problems!: string[];
 }

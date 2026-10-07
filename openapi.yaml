@@ -206,6 +206,26 @@ paths:
         - bearer: []
       summary: Unlink and delete a device, invalidating its device token
       tags: *a2
+  /devices/{id}/diagnostics:
+    get:
+      operationId: DeviceController_getDiagnostics
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticsResponseDto"
+      security:
+        - bearer: []
+      summary: Get comprehensive diagnostics and health problems for a device
+      tags: *a2
   /devices/{id}/capabilities:
     patch:
       operationId: DeviceController_updateCapabilities
@@ -746,6 +766,93 @@ components:
             $ref: "#/components/schemas/DeviceResponseDto"
       required:
         - devices
+    DiagnosticsLastCommandDto:
+      type: object
+      properties:
+        type:
+          type: string
+          example: VIBRATE
+        status:
+          type: string
+          example: EXPIRED
+        failureReason:
+          type: object
+          example: COMMAND_EXPIRED
+          nullable: true
+        at:
+          type: string
+          example: 2026-10-07T16:42:05.355Z
+      required:
+        - type
+        - status
+        - at
+    DevicePermissionsDto:
+      type: object
+      properties:
+        notifications:
+          type: object
+          example: true
+          nullable: true
+        locationForeground:
+          type: object
+          example: true
+          nullable: true
+        locationBackground:
+          type: object
+          example: true
+          nullable: true
+        batteryOptimizationIgnored:
+          type: object
+          example: true
+          nullable: true
+        deviceAdmin:
+          type: object
+          example: true
+          nullable: true
+        fullScreenIntent:
+          type: object
+          example: true
+          nullable: true
+    DiagnosticsResponseDto:
+      type: object
+      properties:
+        hasFcmToken:
+          type: boolean
+          example: true
+        hasDeviceToken:
+          type: boolean
+          example: true
+        lastSeenAt:
+          type: object
+          example: 2026-10-07T16:00:00.000Z
+          nullable: true
+        lastStatusAt:
+          type: object
+          example: 2026-10-07T16:00:00.000Z
+          nullable: true
+        lastLocationAt:
+          type: object
+          example: 2026-10-07T16:00:00.000Z
+          nullable: true
+        lastCommand:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/DiagnosticsLastCommandDto"
+        permissions:
+          $ref: "#/components/schemas/DevicePermissionsDto"
+        problems:
+          example:
+            - NO_HEARTBEAT
+            - NO_LOCATION
+          type: array
+          items:
+            type: string
+      required:
+        - hasFcmToken
+        - hasDeviceToken
+        - permissions
+        - problems
     UpdateDeviceCapabilitiesDto:
       type: object
       properties:
@@ -753,8 +860,16 @@ components:
           type: boolean
           example: true
           description: Whether Device Admin privilege is active
-      required:
-        - adminEnabled
+        permissions:
+          $ref: "#/components/schemas/DevicePermissionsDto"
+        batteryLevel:
+          type: object
+          example: 85
+          nullable: true
+        isCharging:
+          type: object
+          example: false
+          nullable: true
     UpdateDeviceDto:
       type: object
       properties:

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DevicesModule } from '../devices/devices.module.js';
 import { DEVICE_REPOSITORY } from '../devices/domain/device.repository.js';
@@ -21,7 +21,7 @@ import { CommandExpiryJob } from './infrastructure/command-expiry.job.js';
 import { CommandController } from './presentation/command.controller.js';
 
 @Module({
-  imports: [DevicesModule],
+  imports: [forwardRef(() => DevicesModule)],
   controllers: [CommandController],
   providers: [
     {

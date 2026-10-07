@@ -1,10 +1,14 @@
 import { DeviceRepository } from '../domain/device.repository.js';
+import { DevicePermissions } from '../domain/device.entity.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 
 export interface UpdateDeviceCapabilitiesInput {
   deviceId: string;
   authenticatingDeviceId: string;
-  adminEnabled: boolean;
+  adminEnabled?: boolean;
+  permissions?: DevicePermissions | null;
+  batteryLevel?: number | null;
+  isCharging?: boolean | null;
 }
 
 export class UpdateDeviceCapabilitiesUseCase {
@@ -23,7 +27,13 @@ export class UpdateDeviceCapabilitiesUseCase {
       throw new AppError('DEVICE_NOT_FOUND', 'Device not found', 404);
     }
 
-    device.updateCapabilities({ adminEnabled: input.adminEnabled });
+    device.updateCapabilities({
+      adminEnabled: input.adminEnabled,
+      permissions: input.permissions,
+      batteryLevel: input.batteryLevel,
+      isCharging: input.isCharging,
+    });
+
     const saved = await this.deviceRepository.save(device);
 
     return {

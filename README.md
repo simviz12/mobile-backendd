@@ -82,6 +82,7 @@ npm run test:e2e
   - `docs/api/part-4.md` (VIBRATE & MESSAGE Commands, Command History)
   - `docs/api/part-5.md` (LOCK Command & Capabilities)
   - `docs/api/part-6.md` (Locations & LOCATE Command)
+  - `docs/api/part-7.md` (Device Connectivity & Diagnostics)
 
 ---
 

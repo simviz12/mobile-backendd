@@ -59,6 +59,7 @@ model Device {
   batteryLevel    Int?
   isCharging      Boolean?
   lastSeenAt      DateTime?
+  permissions     Json?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

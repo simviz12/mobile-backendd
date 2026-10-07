@@ -28,7 +28,7 @@ export class DeviceAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers['authorization'];
 
-    if (!authHeader || !authHeader.startsWith('Device ')) {
+    if (!authHeader || !authHeader.trim().toLowerCase().startsWith('device ')) {
       throw new AppError(
         'UNAUTHORIZED',
         'Device authentication required (Authorization: Device <token>)',
@@ -36,7 +36,7 @@ export class DeviceAuthGuard implements CanActivate {
       );
     }
 
-    const token = authHeader.substring(7).trim();
+    const token = authHeader.trim().slice(7).trim();
     if (!token) {
       throw new AppError(
         'UNAUTHORIZED',
