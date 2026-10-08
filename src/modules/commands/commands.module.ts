@@ -23,9 +23,11 @@ import {
   EVENT_PUBLISHER_PORT,
   type EventPublisherPort,
 } from '../../shared/events/event-publisher.port.js';
+import { TheftModeModule } from '../theft-mode/theft-mode.module.js';
+import { THEFT_MODE_REPOSITORY, type TheftModeRepository } from '../theft-mode/domain/theft-mode.repository.js';
 
 @Module({
-  imports: [forwardRef(() => DevicesModule)],
+  imports: [forwardRef(() => DevicesModule), forwardRef(() => TheftModeModule)],
   controllers: [CommandController],
   providers: [
     {
@@ -96,11 +98,17 @@ import {
         commandRepo: CommandRepository,
         deviceRepo: DeviceRepository,
         eventPublisher: EventPublisherPort,
-      ) => new AckCommandUseCase(commandRepo, deviceRepo, eventPublisher),
-      inject: [COMMAND_REPOSITORY, DEVICE_REPOSITORY, EVENT_PUBLISHER_PORT],
+        theftModeRepo: TheftModeRepository,
+      ) => new AckCommandUseCase(commandRepo, deviceRepo, eventPublisher, theftModeRepo),
+      inject: [COMMAND_REPOSITORY, DEVICE_REPOSITORY, EVENT_PUBLISHER_PORT, THEFT_MODE_REPOSITORY],
     },
     CommandExpiryJob,
   ],
-  exports: [COMMAND_REPOSITORY, PUSH_NOTIFICATION_PORT, SendCommandUseCase],
+  exports: [
+    COMMAND_REPOSITORY,
+    AUDIT_EVENT_REPOSITORY,
+    PUSH_NOTIFICATION_PORT,
+    SendCommandUseCase,
+  ],
 })
 export class CommandsModule {}

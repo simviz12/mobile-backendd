@@ -15,16 +15,16 @@ export class CreateCommandDto {
   @ApiProperty({
     enum: CommandType,
     example: CommandType.RING,
-    description: 'Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE)',
+    description: 'Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE, THEFT_MODE_ON, THEFT_MODE_OFF)',
   })
   @IsEnum(CommandType, {
-    message: 'type must be a valid CommandType (RING, VIBRATE, MESSAGE, LOCK, LOCATE)',
+    message: 'type must be a valid CommandType (RING, VIBRATE, MESSAGE, LOCK, LOCATE, THEFT_MODE_ON, THEFT_MODE_OFF)',
   })
   type!: CommandType;
 
   @ApiPropertyOptional({
     description:
-      'Payload specific to the command type. RING: {durationSeconds: 5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200, contactPhone?: string}. LOCK/LOCATE: no payload allowed.',
+      'Payload specific to the command type. RING: {durationSeconds: 5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200, contactPhone?: string}. THEFT_MODE_ON: {message, contactPhone?, locationIntervalSeconds, alarm, lock}. LOCK/LOCATE/THEFT_MODE_OFF: no payload allowed.',
     example: { durationSeconds: 30 },
   })
   @IsOptional()

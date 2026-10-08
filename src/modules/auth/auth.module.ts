@@ -95,6 +95,12 @@ import { PasswordHasher, TokenService } from './domain/auth-ports.js';
       inject: [REFRESH_TOKEN_REPOSITORY, TOKEN_SERVICE],
     },
   ],
-  exports: [RegisterUserUseCase, LoginUserUseCase, RefreshSessionUseCase, LogoutUserUseCase],
+  exports: [
+    PASSWORD_HASHER,
+    RegisterUserUseCase,
+    LoginUserUseCase,
+    RefreshSessionUseCase,
+    LogoutUserUseCase,
+  ],
 })
 export class AuthModule {}
