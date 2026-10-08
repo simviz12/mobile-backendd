@@ -35,7 +35,18 @@ async function bootstrap() {
   // Swagger OpenAPI Documentation
   const config = new DocumentBuilder()
     .setTitle('Guardian Mobile API')
-    .setDescription('Remote Anti-Theft Protection System for Android Phones')
+    .setDescription(
+      'Remote Anti-Theft Protection System for Android Phones.\n\n' +
+      '### Real-time WebSocket Gateway (`/realtime`)\n' +
+      'The API provides a Socket.IO real-time gateway at `/realtime`.\n' +
+      '- **Authentication**: Handshake `auth: { token: "<user_jwt>" }` or `Authorization: Bearer <user_jwt>` header.\n' +
+      '- **Room Isolation**: Automatically joins `user:<userId>` room.\n' +
+      '- **Events**:\n' +
+      '  - `device.status`: `{ deviceId, isOnline, batteryLevel, isCharging, networkType, lastSeenAt }`\n' +
+      '  - `device.linked` / `device.unlinked`: `{ deviceId, ownerId }`\n' +
+      '  - `command.updated`: `{ commandId, deviceId, type, status, failureReason, updatedAt }`\n' +
+      '  - `location.updated`: `{ deviceId, location }`',
+    )
     .setVersion('0.0.1')
     .addTag('Health', 'System and database health monitoring')
     .build();

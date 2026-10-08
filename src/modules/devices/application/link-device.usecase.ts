@@ -3,6 +3,8 @@ import { DeviceRepository } from '../domain/device.repository.js';
 import { DeviceTokenGenerator } from '../domain/device-token.generator.js';
 import { randomUUID } from 'crypto';
 
+import { EventPublisherPort } from '../../../shared/events/event-publisher.port.js';
+
 export interface LinkDeviceInput {
   ownerId: string;
   installId: string;
@@ -26,6 +28,7 @@ export class LinkDeviceUseCase {
     private readonly deviceRepository: DeviceRepository,
     private readonly tokenGenerator: DeviceTokenGenerator,
     private readonly heartbeatTimeoutSeconds: number,
+    private readonly eventPublisher?: EventPublisherPort,
   ) {}
 
   async execute(input: LinkDeviceInput): Promise<LinkDeviceResult> {
@@ -75,6 +78,13 @@ export class LinkDeviceUseCase {
     });
 
     const created = await this.deviceRepository.create(newDevice);
+
+    if (this.eventPublisher) {
+      this.eventPublisher.publishToUser(created.ownerId, 'device.linked', {
+        deviceId: created.id,
+        ownerId: created.ownerId,
+      });
+    }
 
     return {
       device: created.toResponse(this.heartbeatTimeoutSeconds, now),

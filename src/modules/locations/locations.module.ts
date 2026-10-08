@@ -8,6 +8,10 @@ import { GetLatestLocationUseCase } from './application/get-latest-location.usec
 import { ListLocationsUseCase } from './application/list-locations.usecase.js';
 import { LocationRetentionJob } from './infrastructure/location-retention.job.js';
 import { LocationController } from './presentation/location.controller.js';
+import {
+  EVENT_PUBLISHER_PORT,
+  type EventPublisherPort,
+} from '../../shared/events/event-publisher.port.js';
 
 @Module({
   imports: [forwardRef(() => DevicesModule)],
@@ -19,9 +23,12 @@ import { LocationController } from './presentation/location.controller.js';
     },
     {
       provide: RecordLocationUseCase,
-      useFactory: (locRepo: LocationRepository, devRepo: DeviceRepository) =>
-        new RecordLocationUseCase(locRepo, devRepo),
-      inject: [LOCATION_REPOSITORY, DEVICE_REPOSITORY],
+      useFactory: (
+        locRepo: LocationRepository,
+        devRepo: DeviceRepository,
+        eventPublisher: EventPublisherPort,
+      ) => new RecordLocationUseCase(locRepo, devRepo, eventPublisher),
+      inject: [LOCATION_REPOSITORY, DEVICE_REPOSITORY, EVENT_PUBLISHER_PORT],
     },
     {
       provide: GetLatestLocationUseCase,

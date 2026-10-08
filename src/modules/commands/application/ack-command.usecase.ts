@@ -1,3 +1,5 @@
+import { DeviceRepository } from '../../devices/domain/device.repository.js';
+import { EventPublisherPort } from '../../../shared/events/event-publisher.port.js';
 import { CommandRepository } from '../domain/command.repository.js';
 import { Command } from '../domain/command.entity.js';
 import { AppError } from '../../../shared/errors/app-error.js';
@@ -10,7 +12,11 @@ export interface AckCommandInput {
 }
 
 export class AckCommandUseCase {
-  constructor(private readonly commandRepository: CommandRepository) {}
+  constructor(
+    private readonly commandRepository: CommandRepository,
+    private readonly deviceRepository?: DeviceRepository,
+    private readonly eventPublisher?: EventPublisherPort,
+  ) {}
 
   async execute(input: AckCommandInput): Promise<Command> {
     const command = await this.commandRepository.findById(input.commandId);
@@ -42,6 +48,28 @@ export class AckCommandUseCase {
     }
 
     await this.commandRepository.save(command);
+
+    // Refresh device lastSeenAt on authenticated call
+    if (this.deviceRepository) {
+      const device = await this.deviceRepository.findById(command.deviceId);
+      if (device) {
+        device.recordHeartbeat(now);
+        device.setLastOnlineState(true);
+        await this.deviceRepository.save(device);
+
+        if (this.eventPublisher) {
+          this.eventPublisher.publishToUser(device.ownerId, 'command.updated', {
+            commandId: command.id,
+            deviceId: command.deviceId,
+            type: command.type,
+            status: command.status,
+            failureReason: command.failureReason ?? null,
+            updatedAt: (command.executedAt ?? command.deliveredAt ?? now).toISOString(),
+          });
+        }
+      }
+    }
+
     return command;
   }
 }

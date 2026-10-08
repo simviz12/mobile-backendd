@@ -162,8 +162,27 @@ npm run test:e2e
   - `GET /devices/:id/locations`: Query historical locations with time window & limit
   - `GET /devices/:id/locations/latest`: Query latest location fix
 
-
 ---
+
+## ⚡ Heartbeat, Online/Offline & Real-time WebSockets (Part 7)
+- **Device Heartbeat & Telemetry**:
+  - `POST /devices/:id/status` (`Authorization: Device <token>`): Report battery level (0..100), charging status, and network connection type (`wifi`, `mobile`, `none`, `unknown`). Returns `204 No Content`.
+  - Every authenticated device endpoint (`/status`, `/locations`, `/ack`) automatically bumps `lastSeenAt`.
+- **Online/Offline Transition Detection**:
+  - `isOnline` is determined against `HEARTBEAT_TIMEOUT_SECONDS` (default: 300s).
+  - Background scheduled job (`DeviceHeartbeatJob`, every 30s) detects devices crossing the timeout threshold and emits `device.status` (offline) **once** per transition.
+- **WebSocket Gateway (`/realtime`)**:
+  - Namespace: `/realtime` powered by Socket.IO.
+  - Handshake authentication using User JWT (`handshake.auth.token` or `Authorization: Bearer <token>`).
+  - Strict room isolation: Each authenticated user joins private room `user:<userId>`.
+  - Clean Architecture event publishing via `EventPublisherPort`.
+- **Real-time Event Catalog**:
+  - `device.status`: `{ deviceId, isOnline, batteryLevel, isCharging, networkType, lastSeenAt }`
+  - `device.linked` / `device.unlinked`: `{ deviceId, ownerId }`
+  - `command.updated`: `{ commandId, deviceId, type, status, failureReason, updatedAt }`
+  - `location.updated`: `{ deviceId, location }`
+- **Interactive Acceptance Demo Script**:
+  - Run `npx tsx scripts/demo-websocket-session.ts` to see live WebSocket event reception.
 
 ## 🌿 GitFlow Branching Model
 - `main`: Production-ready releases.

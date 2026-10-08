@@ -19,6 +19,10 @@ import { GetCommandUseCase } from './application/get-command.usecase.js';
 import { AckCommandUseCase } from './application/ack-command.usecase.js';
 import { CommandExpiryJob } from './infrastructure/command-expiry.job.js';
 import { CommandController } from './presentation/command.controller.js';
+import {
+  EVENT_PUBLISHER_PORT,
+  type EventPublisherPort,
+} from '../../shared/events/event-publisher.port.js';
 
 @Module({
   imports: [forwardRef(() => DevicesModule)],
@@ -88,9 +92,12 @@ import { CommandController } from './presentation/command.controller.js';
     },
     {
       provide: AckCommandUseCase,
-      useFactory: (commandRepo: CommandRepository) =>
-        new AckCommandUseCase(commandRepo),
-      inject: [COMMAND_REPOSITORY],
+      useFactory: (
+        commandRepo: CommandRepository,
+        deviceRepo: DeviceRepository,
+        eventPublisher: EventPublisherPort,
+      ) => new AckCommandUseCase(commandRepo, deviceRepo, eventPublisher),
+      inject: [COMMAND_REPOSITORY, DEVICE_REPOSITORY, EVENT_PUBLISHER_PORT],
     },
     CommandExpiryJob,
   ],

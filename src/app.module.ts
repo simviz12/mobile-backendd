@@ -11,6 +11,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { DevicesModule } from './modules/devices/devices.module.js';
 import { CommandsModule } from './modules/commands/commands.module.js';
 import { LocationsModule } from './modules/locations/locations.module.js';
+import { RealtimeModule } from './modules/realtime/realtime.module.js';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { LocationsModule } from './modules/locations/locations.module.js';
       },
     ]),
     PrismaModule,
+    RealtimeModule,
     HealthModule,
     UsersModule,
     AuthModule,
