@@ -498,7 +498,24 @@ paths:
       tags: *a4
 info:
   title: Guardian Mobile API
-  description: Remote Anti-Theft Protection System for Android Phones
+  description: >-
+    Remote Anti-Theft Protection System for Android Phones.
+
+
+    ### Real-time WebSocket Gateway (`/realtime`)
+
+    The API provides a Socket.IO real-time gateway at `/realtime`.
+
+    - **Authentication**: Handshake `auth: { token: "<user_jwt>" }` or
+    `Authorization: Bearer <user_jwt>` header.
+
+    - **Room Isolation**: Automatically joins `user:<userId>` room.
+
+    - **Events**:
+      - `device.status`: `{ deviceId, isOnline, batteryLevel, isCharging, networkType, lastSeenAt }`
+      - `device.linked` / `device.unlinked`: `{ deviceId, ownerId }`
+      - `command.updated`: `{ commandId, deviceId, type, status, failureReason, updatedAt }`
+      - `location.updated`: `{ deviceId, location }`
   version: 0.0.1
   contact: {}
 tags:
