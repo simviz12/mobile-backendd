@@ -34,7 +34,9 @@ export interface DeviceProps {
   adminEnabled?: boolean;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
+  networkType?: string | null;
   lastSeenAt?: Date | null;
+  lastOnlineState?: boolean | null;
   permissions?: DevicePermissions | null;
   createdAt: Date;
   updatedAt: Date;
@@ -108,8 +110,16 @@ export class Device {
     return this.props.isCharging;
   }
 
+  get networkType(): string | null | undefined {
+    return this.props.networkType;
+  }
+
   get lastSeenAt(): Date | null | undefined {
     return this.props.lastSeenAt;
+  }
+
+  get lastOnlineState(): boolean | null | undefined {
+    return this.props.lastOnlineState;
   }
 
   get permissions(): DevicePermissions | null | undefined {
@@ -136,9 +146,34 @@ export class Device {
     return diffSeconds <= heartbeatTimeoutSeconds && diffSeconds >= 0;
   }
 
+  setLastOnlineState(state: boolean): void {
+    this.props.lastOnlineState = state;
+    this.props.updatedAt = new Date();
+  }
+
   recordHeartbeat(now: Date = new Date()): void {
     this.props.lastSeenAt = now;
     this.props.updatedAt = now;
+  }
+
+  updateStatus(params: {
+    batteryLevel: number;
+    isCharging: boolean;
+    networkType?: string | null;
+    appVersion?: string | null;
+    now?: Date;
+  }): void {
+    const timestamp = params.now ?? new Date();
+    this.props.batteryLevel = params.batteryLevel;
+    this.props.isCharging = params.isCharging;
+    if (params.networkType !== undefined) {
+      this.props.networkType = params.networkType;
+    }
+    if (params.appVersion !== undefined && params.appVersion !== null) {
+      this.props.appVersion = params.appVersion;
+    }
+    this.props.lastSeenAt = timestamp;
+    this.props.updatedAt = timestamp;
   }
 
   updateDetails(params: { name?: string; fcmToken?: string | null }): void {
@@ -206,6 +241,7 @@ export class Device {
       adminEnabled: this.adminEnabled,
       batteryLevel: this.batteryLevel ?? null,
       isCharging: this.isCharging ?? null,
+      networkType: this.networkType ?? null,
       lastSeenAt: this.lastSeenAt ? this.lastSeenAt.toISOString() : null,
       isOnline: this.isOnline(heartbeatTimeoutSeconds, now),
       lastLocation: this.props.lastLocation ?? null,

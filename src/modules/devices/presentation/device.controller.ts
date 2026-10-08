@@ -29,12 +29,14 @@ import { UpdateDeviceUseCase } from '../application/update-device.usecase.js';
 import { UnlinkDeviceUseCase } from '../application/unlink-device.usecase.js';
 import { UpdateDeviceCapabilitiesUseCase } from '../application/update-device-capabilities.usecase.js';
 import { GetDeviceDiagnosticsUseCase } from '../application/get-device-diagnostics.usecase.js';
+import { ReportDeviceStatusUseCase } from '../application/report-device-status.usecase.js';
 import {
   DeviceResponseDto,
   DiagnosticsResponseDto,
   LinkDeviceDto,
   LinkDeviceResponseDto,
   ListDevicesResponseDto,
+  ReportStatusDto,
   UpdateDeviceCapabilitiesDto,
   UpdateDeviceDto,
 } from './device.dto.js';
@@ -52,6 +54,7 @@ export class DeviceController {
     private readonly unlinkDeviceUseCase: UnlinkDeviceUseCase,
     private readonly updateDeviceCapabilitiesUseCase: UpdateDeviceCapabilitiesUseCase,
     private readonly getDeviceDiagnosticsUseCase: GetDeviceDiagnosticsUseCase,
+    private readonly reportDeviceStatusUseCase: ReportDeviceStatusUseCase,
   ) {}
 
   @Post()
@@ -137,6 +140,29 @@ export class DeviceController {
     @CurrentUser() user: JwtValidatedUser,
   ): Promise<DiagnosticsResponseDto> {
     return this.getDeviceDiagnosticsUseCase.execute(id, user.userId);
+  }
+
+  @Post(':id/status')
+  @UseGuards(DeviceAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Report battery, charging, network type, and touch device heartbeat (Authorization: Device <token>)',
+  })
+  @ApiResponse({ status: 204, description: 'Status recorded successfully' })
+  async reportStatus(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Body() dto: ReportStatusDto,
+  ): Promise<void> {
+    const authenticatingDevice = (req as any).device;
+    await this.reportDeviceStatusUseCase.execute({
+      deviceId: id,
+      authenticatingDeviceId: authenticatingDevice.id,
+      batteryLevel: dto.batteryLevel,
+      isCharging: dto.isCharging,
+      networkType: dto.networkType,
+      appVersion: dto.appVersion,
+    });
   }
 
   @Patch(':id/capabilities')

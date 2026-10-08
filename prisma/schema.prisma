@@ -58,7 +58,9 @@ model Device {
   adminEnabled    Boolean     @default(false)
   batteryLevel    Int?
   isCharging      Boolean?
+  networkType     String?
   lastSeenAt      DateTime?
+  lastOnlineState Boolean?    @default(false)
   permissions     Json?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

@@ -5,6 +5,7 @@ export interface DeviceRepository {
   findByOwnerAndInstallId(ownerId: string, installId: string): Promise<Device | null>;
   findByTokenHash(tokenHash: string): Promise<Device | null>;
   findAllByOwnerId(ownerId: string): Promise<Device[]>;
+  findAll(): Promise<Device[]>;
   create(device: Device): Promise<Device>;
   save(device: Device): Promise<Device>;
   delete(id: string): Promise<void>;

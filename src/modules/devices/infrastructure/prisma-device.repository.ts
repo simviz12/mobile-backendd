@@ -34,7 +34,9 @@ export class PrismaDeviceRepository implements DeviceRepository {
       adminEnabled: raw.adminEnabled,
       batteryLevel: raw.batteryLevel,
       isCharging: raw.isCharging,
+      networkType: raw.networkType,
       lastSeenAt: raw.lastSeenAt,
+      lastOnlineState: raw.lastOnlineState,
       permissions: raw.permissions as any,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -103,6 +105,18 @@ export class PrismaDeviceRepository implements DeviceRepository {
     return rows.map((r) => this.toDomain(r));
   }
 
+  async findAll(): Promise<Device[]> {
+    const rows = await this.prisma.device.findMany({
+      include: {
+        locations: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    return rows.map((r) => this.toDomain(r));
+  }
+
   async create(device: Device): Promise<Device> {
     const created = await this.prisma.device.create({
       data: {
@@ -119,7 +133,9 @@ export class PrismaDeviceRepository implements DeviceRepository {
         deviceTokenHash: device.deviceTokenHash,
         batteryLevel: device.batteryLevel,
         isCharging: device.isCharging,
+        networkType: device.networkType,
         lastSeenAt: device.lastSeenAt,
+        lastOnlineState: device.lastOnlineState ?? false,
         permissions: (device.permissions as any) ?? undefined,
         createdAt: device.createdAt,
         updatedAt: device.updatedAt,
@@ -138,7 +154,9 @@ export class PrismaDeviceRepository implements DeviceRepository {
         adminEnabled: device.adminEnabled,
         batteryLevel: device.batteryLevel,
         isCharging: device.isCharging,
+        networkType: device.networkType,
         lastSeenAt: device.lastSeenAt,
+        lastOnlineState: device.lastOnlineState ?? false,
         permissions: (device.permissions as any) ?? undefined,
         updatedAt: device.updatedAt,
       },

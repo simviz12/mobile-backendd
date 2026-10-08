@@ -108,6 +108,9 @@ export class DeviceResponseDto {
   @ApiPropertyOptional({ example: false })
   isCharging?: boolean | null;
 
+  @ApiPropertyOptional({ example: 'wifi' })
+  networkType?: string | null;
+
   @ApiPropertyOptional({ example: null })
   lastSeenAt?: string | null;
 
@@ -135,6 +138,33 @@ export class DeviceResponseDto {
 
   @ApiProperty({ example: '2026-10-06T00:00:00.000Z' })
   updatedAt!: string;
+}
+
+export class ReportStatusDto {
+  @ApiProperty({ example: 85, description: 'Battery percentage 0..100' })
+  @IsInt({ message: 'batteryLevel must be an integer' })
+  @Min(0, { message: 'batteryLevel must be at least 0' })
+  @Max(100, { message: 'batteryLevel must not be greater than 100' })
+  batteryLevel!: number;
+
+  @ApiProperty({ example: false, description: 'Whether the device is plugged in' })
+  @IsBoolean({ message: 'isCharging must be a boolean' })
+  isCharging!: boolean;
+
+  @ApiProperty({
+    example: 'wifi',
+    enum: ['wifi', 'mobile', 'none', 'unknown'],
+    description: 'Current network type',
+  })
+  @IsIn(['wifi', 'mobile', 'none', 'unknown'], {
+    message: 'networkType must be one of: wifi, mobile, none, unknown',
+  })
+  networkType!: 'wifi' | 'mobile' | 'none' | 'unknown';
+
+  @ApiPropertyOptional({ example: '1.0.1', description: 'Updated client app version' })
+  @IsOptional()
+  @IsString()
+  appVersion?: string;
 }
 
 export class DevicePermissionsDto {

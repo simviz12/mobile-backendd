@@ -4,6 +4,8 @@ import { Location, LocationSource } from '../domain/location.entity.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { randomUUID } from 'crypto';
 
+import { EventPublisherPort } from '../../../shared/events/event-publisher.port.js';
+
 export interface LocationItemInput {
   latitude: number;
   longitude: number;
@@ -24,6 +26,7 @@ export class RecordLocationUseCase {
   constructor(
     private readonly locationRepository: LocationRepository,
     private readonly deviceRepository: DeviceRepository,
+    private readonly eventPublisher?: EventPublisherPort,
   ) {}
 
   async execute(input: RecordLocationInput): Promise<Location[]> {
@@ -103,11 +106,39 @@ export class RecordLocationUseCase {
       );
     }
 
+    let savedLocations: Location[] = [];
     if (locationsToSave.length === 1) {
       const saved = await this.locationRepository.create(locationsToSave[0]);
-      return [saved];
+      savedLocations = [saved];
     } else {
-      return this.locationRepository.createMany(locationsToSave);
+      savedLocations = await this.locationRepository.createMany(locationsToSave);
     }
+
+    // Refresh device lastSeenAt and online state on authenticated location post
+    device.recordHeartbeat(now);
+    device.setLastOnlineState(true);
+    await this.deviceRepository.save(device);
+
+    if (this.eventPublisher && savedLocations.length > 0) {
+      // Find latest location in batch to emit
+      const latest = [...savedLocations].sort(
+        (a, b) => b.recordedAt.getTime() - a.recordedAt.getTime(),
+      )[0];
+
+      this.eventPublisher.publishToUser(device.ownerId, 'location.updated', {
+        deviceId: device.id,
+        location: {
+          id: latest.id,
+          latitude: latest.latitude,
+          longitude: latest.longitude,
+          accuracyMeters: latest.accuracyMeters,
+          speedMps: latest.speedMps,
+          recordedAt: latest.recordedAt.toISOString(),
+          source: latest.source,
+        },
+      });
+    }
+
+    return savedLocations;
   }
 }

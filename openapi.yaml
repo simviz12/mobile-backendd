@@ -226,6 +226,27 @@ paths:
         - bearer: []
       summary: Get comprehensive diagnostics and health problems for a device
       tags: *a2
+  /devices/{id}/status:
+    post:
+      operationId: DeviceController_reportStatus
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportStatusDto"
+      responses:
+        "204":
+          description: Status recorded successfully
+      summary: "Report battery, charging, network type, and touch device heartbeat
+        (Authorization: Device <token>)"
+      tags: *a2
   /devices/{id}/capabilities:
     patch:
       operationId: DeviceController_updateCapabilities
@@ -715,6 +736,9 @@ components:
         isCharging:
           type: object
           example: false
+        networkType:
+          type: object
+          example: wifi
         lastSeenAt:
           type: object
           example: null
@@ -853,6 +877,34 @@ components:
         - hasDeviceToken
         - permissions
         - problems
+    ReportStatusDto:
+      type: object
+      properties:
+        batteryLevel:
+          type: number
+          example: 85
+          description: Battery percentage 0..100
+        isCharging:
+          type: boolean
+          example: false
+          description: Whether the device is plugged in
+        networkType:
+          type: string
+          example: wifi
+          enum:
+            - wifi
+            - mobile
+            - none
+            - unknown
+          description: Current network type
+        appVersion:
+          type: string
+          example: 1.0.1
+          description: Updated client app version
+      required:
+        - batteryLevel
+        - isCharging
+        - networkType
     UpdateDeviceCapabilitiesDto:
       type: object
       properties:
