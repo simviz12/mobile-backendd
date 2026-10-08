@@ -1,7 +1,8 @@
 import { DeviceRepository } from '../../devices/domain/device.repository.js';
 import { EventPublisherPort } from '../../../shared/events/event-publisher.port.js';
 import { CommandRepository } from '../domain/command.repository.js';
-import { Command } from '../domain/command.entity.js';
+import { Command, CommandType } from '../domain/command.entity.js';
+import { TheftModeRepository } from '../../theft-mode/domain/theft-mode.repository.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 
 export interface AckCommandInput {
@@ -16,6 +17,7 @@ export class AckCommandUseCase {
     private readonly commandRepository: CommandRepository,
     private readonly deviceRepository?: DeviceRepository,
     private readonly eventPublisher?: EventPublisherPort,
+    private readonly theftModeRepository?: TheftModeRepository,
   ) {}
 
   async execute(input: AckCommandInput): Promise<Command> {
@@ -49,12 +51,26 @@ export class AckCommandUseCase {
 
     await this.commandRepository.save(command);
 
+    // If THEFT_MODE_OFF was EXECUTED, close the active TheftMode record and clear theftModeActive
+    if (command.type === CommandType.THEFT_MODE_OFF && input.status === 'EXECUTED') {
+      if (this.theftModeRepository) {
+        const activeTheftMode = await this.theftModeRepository.findActiveByDeviceId(command.deviceId);
+        if (activeTheftMode) {
+          activeTheftMode.deactivate(now);
+          await this.theftModeRepository.save(activeTheftMode);
+        }
+      }
+    }
+
     // Refresh device lastSeenAt on authenticated call
     if (this.deviceRepository) {
       const device = await this.deviceRepository.findById(command.deviceId);
       if (device) {
         device.recordHeartbeat(now);
         device.setLastOnlineState(true);
+        if (command.type === CommandType.THEFT_MODE_OFF && input.status === 'EXECUTED') {
+          device.setTheftModeActive(false);
+        }
         await this.deviceRepository.save(device);
 
         if (this.eventPublisher) {

@@ -102,6 +102,9 @@ export class DeviceResponseDto {
   @ApiProperty({ example: false })
   adminEnabled!: boolean;
 
+  @ApiProperty({ example: false })
+  theftModeActive!: boolean;
+
   @ApiPropertyOptional({ example: 85 })
   batteryLevel?: number | null;
 

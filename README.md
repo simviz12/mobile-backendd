@@ -82,7 +82,8 @@ npm run test:e2e
   - `docs/api/part-4.md` (VIBRATE & MESSAGE Commands, Command History)
   - `docs/api/part-5.md` (LOCK Command & Capabilities)
   - `docs/api/part-6.md` (Locations & LOCATE Command)
-  - `docs/api/part-7.md` (Device Connectivity & Diagnostics)
+  - `docs/api/part-7.md` (Heartbeat, Online/Offline Detection & WebSockets)
+  - `docs/api/part-8.md` (Theft Mode & Atomic Emergency Posture)
 
 ---
 
@@ -183,6 +184,25 @@ npm run test:e2e
   - `location.updated`: `{ deviceId, location }`
 - **Interactive Acceptance Demo Script**:
   - Run `npx tsx scripts/demo-websocket-session.ts` to see live WebSocket event reception.
+
+---
+
+## 🚨 Theft Mode (Part 8)
+- **Emergency Lockdown Strategy**:
+  - Dispatches one atomic `THEFT_MODE_ON` command containing the complete lockdown configuration (lockscreen message, emergency contact phone, high-frequency location interval, siren alarm, screen lock).
+  - Target device applies all configuration atomically and sends back a single ack.
+  - Requires target device to have `adminEnabled: true` if `lock: true`.
+  - Enforces at most **one** active theft mode per device via partial unique DB index.
+- **Deactivation with Security**:
+  - Requires explicit owner password re-verification using Argon2id (`DELETE /devices/:id/theft-mode`).
+  - Standard deactivation marks mode deactivated upon device `EXECUTED` ack.
+  - Force deactivation (`?force=true`) immediately closes record and sets `theftModeActive=false` in the database to instantly restore dashboard state while device executes asynchronously.
+  - Rate-limited to 10 requests / minute per IP with full audit logging in `audit_events`.
+- **Endpoints**:
+  - `POST /devices/:id/theft-mode`: Activate theft mode with lockdown configuration
+  - `GET /devices/:id/theft-mode`: Get active theft mode configuration
+  - `GET /devices/:id/theft-mode/history`: Query history of theft mode activations
+  - `DELETE /devices/:id/theft-mode?force=true`: Deactivate theft mode with password re-check
 
 ## 🌿 GitFlow Branching Model
 - `main`: Production-ready releases.

@@ -12,6 +12,7 @@ import { DevicesModule } from './modules/devices/devices.module.js';
 import { CommandsModule } from './modules/commands/commands.module.js';
 import { LocationsModule } from './modules/locations/locations.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
+import { TheftModeModule } from './modules/theft-mode/theft-mode.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module.js';
     DevicesModule,
     CommandsModule,
     LocationsModule,
+    TheftModeModule,
   ],
   providers: [
     {

@@ -32,6 +32,7 @@ export interface DeviceProps {
   fcmToken?: string | null;
   deviceTokenHash?: string | null;
   adminEnabled?: boolean;
+  theftModeActive?: boolean;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
   networkType?: string | null;
@@ -96,6 +97,15 @@ export class Device {
 
   get adminEnabled(): boolean {
     return this.props.adminEnabled ?? false;
+  }
+
+  get theftModeActive(): boolean {
+    return this.props.theftModeActive ?? false;
+  }
+
+  setTheftModeActive(active: boolean): void {
+    this.props.theftModeActive = active;
+    this.props.updatedAt = new Date();
   }
 
   get lastLocation(): LastLocationSummary | null | undefined {
@@ -239,6 +249,7 @@ export class Device {
       mode: this.mode,
       fcmToken: this.fcmToken ?? null,
       adminEnabled: this.adminEnabled,
+      theftModeActive: this.theftModeActive,
       batteryLevel: this.batteryLevel ?? null,
       isCharging: this.isCharging ?? null,
       networkType: this.networkType ?? null,

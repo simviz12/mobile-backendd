@@ -17,6 +17,7 @@ model User {
   refreshTokens RefreshToken[]
   devices       Device[]
   issuedCommands Command[]     @relation("IssuedCommands")
+  theftModes     TheftMode[]
 
   @@map("users")
 }
@@ -56,6 +57,7 @@ model Device {
   fcmToken        String?
   deviceTokenHash String?
   adminEnabled    Boolean     @default(false)
+  theftModeActive Boolean     @default(false)
   batteryLevel    Int?
   isCharging      Boolean?
   networkType     String?
@@ -69,6 +71,7 @@ model Device {
   commands        Command[]
   auditEvents     AuditEvent[]
   locations       Location[]
+  theftModes      TheftMode[]
 
   @@unique([ownerId, installId])
   @@index([ownerId])
@@ -82,6 +85,8 @@ enum CommandType {
   MESSAGE
   LOCK
   LOCATE
+  THEFT_MODE_ON
+  THEFT_MODE_OFF
 }
 
 enum CommandStatus {
@@ -155,4 +160,25 @@ model Location {
   @@index([deviceId, recordedAt(sort: Desc)])
   @@index([recordedAt])
   @@map("locations")
+}
+
+model TheftMode {
+  id                      String    @id @default(uuid())
+  deviceId                String
+  activatedById           String
+  activatedAt             DateTime  @default(now())
+  deactivatedAt           DateTime?
+  message                 String
+  contactPhone            String?
+  locationIntervalSeconds Int
+  alarm                   Boolean
+  lock                    Boolean
+
+  device                  Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  activatedBy             User      @relation(fields: [activatedById], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([activatedById])
+  @@index([deviceId, deactivatedAt])
+  @@map("theft_modes")
 }

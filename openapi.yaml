@@ -350,6 +350,8 @@ paths:
               - MESSAGE
               - LOCK
               - LOCATE
+              - THEFT_MODE_ON
+              - THEFT_MODE_OFF
       responses:
         "200":
           description: ""
@@ -496,6 +498,111 @@ paths:
         - bearer: []
       summary: Get latest recorded location for a device
       tags: *a4
+  /devices/{id}/theft-mode:
+    post:
+      operationId: TheftModeController_activate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateTheftModeDto"
+      responses:
+        "201":
+          description: Theft mode activated and THEFT_MODE_ON command dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivateTheftModeResponseDto"
+        "409":
+          description: THEFT_MODE_ALREADY_ACTIVE or CAPABILITY_NOT_AVAILABLE
+      security: &a5
+        - bearer: []
+      summary: Activate theft mode on a protected device
+      tags: &a6
+        - TheftMode
+    get:
+      operationId: TheftModeController_getActive
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active theft mode record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TheftModeResponseDto"
+        "404":
+          description: THEFT_MODE_NOT_ACTIVE or DEVICE_NOT_FOUND
+      security: *a5
+      summary: Get active theft mode configuration for device
+      tags: *a6
+    delete:
+      operationId: TheftModeController_deactivate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: force
+          required: false
+          in: query
+          description: Immediately close theft mode in database without waiting for device
+            ack
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeactivateTheftModeDto"
+      responses:
+        "200":
+          description: THEFT_MODE_OFF command created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeactivateTheftModeResponseDto"
+        "401":
+          description: INVALID_CREDENTIALS if password confirmation fails
+        "404":
+          description: THEFT_MODE_NOT_ACTIVE or DEVICE_NOT_FOUND
+      security: *a5
+      summary: Deactivate theft mode on a protected device
+      tags: *a6
+  /devices/{id}/theft-mode/history:
+    get:
+      operationId: TheftModeController_getHistory
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of theft mode activation records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TheftModeResponseDto"
+      security: *a5
+      summary: Get history of theft mode activations for device
+      tags: *a6
 info:
   title: Guardian Mobile API
   description: >-
@@ -747,6 +854,9 @@ components:
         adminEnabled:
           type: boolean
           example: false
+        theftModeActive:
+          type: boolean
+          example: false
         batteryLevel:
           type: object
           example: 85
@@ -784,6 +894,7 @@ components:
         - platform
         - mode
         - adminEnabled
+        - theftModeActive
         - isOnline
         - createdAt
         - updatedAt
@@ -959,13 +1070,18 @@ components:
             - MESSAGE
             - LOCK
             - LOCATE
+            - THEFT_MODE_ON
+            - THEFT_MODE_OFF
           example: RING
-          description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE)
+          description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE,
+            THEFT_MODE_ON, THEFT_MODE_OFF)
         payload:
           type: object
           description: "Payload specific to the command type. RING: {durationSeconds:
             5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200,
-            contactPhone?: string}. LOCK/LOCATE: no payload allowed."
+            contactPhone?: string}. THEFT_MODE_ON: {message, contactPhone?,
+            locationIntervalSeconds, alarm, lock}. LOCK/LOCATE/THEFT_MODE_OFF:
+            no payload allowed."
           example:
             durationSeconds: 30
       required:
@@ -990,6 +1106,8 @@ components:
             - MESSAGE
             - LOCK
             - LOCATE
+            - THEFT_MODE_ON
+            - THEFT_MODE_OFF
           example: RING
         payload:
           type: object
@@ -1168,3 +1286,112 @@ components:
         - recordedAt
         - receivedAt
         - source
+    ActivateTheftModeDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Este teléfono fue reportado como robado. Por favor devolverlo al dueño.
+          description: Message shown on lockscreen (1..200 characters)
+        contactPhone:
+          type: string
+          example: "+573001234567"
+          description: Contact phone number (5..20 digits, optional leading +)
+        locationIntervalSeconds:
+          type: number
+          example: 60
+          description: Location report interval in seconds (60..900)
+          minimum: 60
+          maximum: 900
+        alarm:
+          type: boolean
+          example: true
+          description: Trigger loud alarm on the device
+        lock:
+          type: boolean
+          example: true
+          description: Lock device screen using Device Admin
+      required:
+        - message
+        - locationIntervalSeconds
+        - alarm
+        - lock
+    TheftModeResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 8cf41f87-a2f0-4592-886b-31d79e5fa47c
+        deviceId:
+          type: string
+          example: 2690fc16-f30c-43f6-95ff-43bc919e1e23
+        activatedById:
+          type: string
+          example: 6942c7aa-00b8-4c12-9c17-eb71887e2b10
+        activatedAt:
+          type: string
+          example: 2026-10-07T20:45:00.000Z
+        deactivatedAt:
+          type: object
+          example: null
+          nullable: true
+        message:
+          type: string
+          example: Este teléfono fue reportado como robado.
+        contactPhone:
+          type: object
+          example: "+573001234567"
+          nullable: true
+        locationIntervalSeconds:
+          type: number
+          example: 60
+        alarm:
+          type: boolean
+          example: true
+        lock:
+          type: boolean
+          example: true
+      required:
+        - id
+        - deviceId
+        - activatedById
+        - activatedAt
+        - message
+        - locationIntervalSeconds
+        - alarm
+        - lock
+    ActivateTheftModeResponseDto:
+      type: object
+      properties:
+        theftMode:
+          $ref: "#/components/schemas/TheftModeResponseDto"
+        command:
+          type: object
+          description: Created THEFT_MODE_ON command
+      required:
+        - theftMode
+        - command
+    DeactivateTheftModeDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: SecretPassword123!
+          description: Account password required to confirm deactivation
+      required:
+        - password
+    DeactivateTheftModeResponseDto:
+      type: object
+      properties:
+        theftMode:
+          $ref: "#/components/schemas/TheftModeResponseDto"
+        command:
+          type: object
+          description: Created THEFT_MODE_OFF command
+        forced:
+          type: boolean
+          example: false
+      required:
+        - theftMode
+        - command
+        - forced

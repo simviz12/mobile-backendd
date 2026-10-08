@@ -4,6 +4,8 @@ export enum CommandType {
   MESSAGE = 'MESSAGE',
   LOCK = 'LOCK',
   LOCATE = 'LOCATE',
+  THEFT_MODE_ON = 'THEFT_MODE_ON',
+  THEFT_MODE_OFF = 'THEFT_MODE_OFF',
 }
 
 export enum CommandStatus {

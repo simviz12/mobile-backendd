@@ -90,12 +90,18 @@ export class SendCommandUseCase {
 
     const savedPending = await this.commandRepository.create(command);
 
-    // Audit trail: write AuditEvent for every LOCK or LOCATE issued
-    if (input.type === CommandType.LOCK || input.type === CommandType.LOCATE) {
-      const action =
-        input.type === CommandType.LOCK
-          ? 'COMMAND_LOCK_ISSUED'
-          : 'COMMAND_LOCATE_ISSUED';
+    // Audit trail: write AuditEvent for every LOCK, LOCATE, THEFT_MODE_ON, or THEFT_MODE_OFF issued
+    if (
+      input.type === CommandType.LOCK ||
+      input.type === CommandType.LOCATE ||
+      input.type === CommandType.THEFT_MODE_ON ||
+      input.type === CommandType.THEFT_MODE_OFF
+    ) {
+      let action = 'COMMAND_ISSUED';
+      if (input.type === CommandType.LOCK) action = 'COMMAND_LOCK_ISSUED';
+      else if (input.type === CommandType.LOCATE) action = 'COMMAND_LOCATE_ISSUED';
+      else if (input.type === CommandType.THEFT_MODE_ON) action = 'THEFT_MODE_ON';
+      else if (input.type === CommandType.THEFT_MODE_OFF) action = 'THEFT_MODE_OFF';
 
       await this.auditEventRepository.create(
         AuditEvent.create({
