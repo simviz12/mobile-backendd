@@ -38,6 +38,30 @@ export class JwtTokenService implements TokenService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  generateTwoFactorToken(userId: string): string {
+    return this.jwtService.sign(
+      { sub: userId, purpose: '2fa_login' },
+      {
+        secret: this.accessSecret,
+        expiresIn: '5m' as any, // short-lived single purpose
+      },
+    );
+  }
+
+  verifyTwoFactorToken(token: string): { userId: string } | null {
+    try {
+      const decoded = this.jwtService.verify(token, {
+        secret: this.accessSecret,
+      }) as any;
+      if (decoded && decoded.purpose === '2fa_login' && decoded.sub) {
+        return { userId: decoded.sub };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   getAccessTokenExpiresIn(): number {
     const millis = (ms as any)(this.accessTtl);
     return Math.floor(millis / 1000);

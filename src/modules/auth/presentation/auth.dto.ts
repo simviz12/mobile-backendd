@@ -101,4 +101,81 @@ export class CurrentUserProfileDto {
 
   @ApiProperty({ example: '2026-10-06T00:00:00.000Z' })
   createdAt!: Date;
+
+  @ApiProperty({ example: false })
+  twoFactorEnabled?: boolean;
 }
+
+export class SetupTwoFactorResponseDto {
+  @ApiProperty({ example: 'JBSWY3DPEHPK3PXP' })
+  secret!: string;
+
+  @ApiProperty({ example: 'otpauth://totp/Guardian%20Mobile:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Guardian%20Mobile' })
+  otpauthUrl!: string;
+}
+
+export class EnableTwoFactorDto {
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+}
+
+export class EnableTwoFactorResponseDto {
+  @ApiProperty({ example: ['A1B2-C3D4', 'E5F6-G7H8'], type: [String] })
+  backupCodes!: string[];
+}
+
+export class DisableTwoFactorDto {
+  @ApiProperty({ example: 'Secret123!' })
+  @IsString()
+  @IsNotEmpty()
+  password!: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+}
+
+export class VerifyTwoFactorLoginDto {
+  @ApiProperty({ example: 'eyJhbGciOi...' })
+  @IsString()
+  @IsNotEmpty()
+  twoFactorToken!: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'Secret123!' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword!: string;
+
+  @ApiProperty({ example: 'NewSecret123!' })
+  @IsString()
+  @MinLength(8)
+  @Matches(/^(?=.*[a-zA-Z])(?=.*\d)/, {
+    message: 'newPassword must contain at least one letter and one number',
+  })
+  newPassword!: string;
+}
+
+export class SessionItemDto {
+  @ApiProperty({ example: 'c0b89d81-6782-4cbe-a238-aeb49ef61e1b' })
+  id!: string;
+
+  @ApiProperty({ example: 'Mozilla/5.0 (Android; Mobile)' })
+  userAgent?: string | null;
+
+  @ApiProperty({ example: '2026-10-08T00:00:00.000Z' })
+  createdAt!: Date;
+
+  @ApiProperty({ example: '2026-11-08T00:00:00.000Z' })
+  expiresAt!: Date;
+}
+

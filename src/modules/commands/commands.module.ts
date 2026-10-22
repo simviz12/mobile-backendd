@@ -17,18 +17,32 @@ import { SendRingCommandUseCase } from './application/send-ring-command.usecase.
 import { ListDeviceCommandsUseCase } from './application/list-device-commands.usecase.js';
 import { GetCommandUseCase } from './application/get-command.usecase.js';
 import { AckCommandUseCase } from './application/ack-command.usecase.js';
+import { ExecuteWipeUseCase } from './application/execute-wipe.usecase.js';
+import { ListAuditEventsUseCase } from './application/list-audit-events.usecase.js';
 import { CommandExpiryJob } from './infrastructure/command-expiry.job.js';
 import { CommandController } from './presentation/command.controller.js';
+import { AuditController } from './presentation/audit.controller.js';
 import {
   EVENT_PUBLISHER_PORT,
   type EventPublisherPort,
 } from '../../shared/events/event-publisher.port.js';
 import { TheftModeModule } from '../theft-mode/theft-mode.module.js';
 import { THEFT_MODE_REPOSITORY, type TheftModeRepository } from '../theft-mode/domain/theft-mode.repository.js';
+import { UsersModule } from '../users/users.module.js';
+import { USER_REPOSITORY, type UserRepository } from '../users/domain/user.repository.js';
+import { AuthModule } from '../auth/auth.module.js';
+import { PASSWORD_HASHER, type PasswordHasher } from '../auth/domain/auth-ports.js';
+
+import { VerifyActionTwoFactorUseCase } from '../auth/application/verify-action-two-factor.usecase.js';
 
 @Module({
-  imports: [forwardRef(() => DevicesModule), forwardRef(() => TheftModeModule)],
-  controllers: [CommandController],
+  imports: [
+    forwardRef(() => DevicesModule),
+    forwardRef(() => TheftModeModule),
+    UsersModule,
+    AuthModule,
+  ],
+  controllers: [CommandController, AuditController],
   providers: [
     {
       provide: COMMAND_REPOSITORY,
@@ -102,6 +116,49 @@ import { THEFT_MODE_REPOSITORY, type TheftModeRepository } from '../theft-mode/d
       ) => new AckCommandUseCase(commandRepo, deviceRepo, eventPublisher, theftModeRepo),
       inject: [COMMAND_REPOSITORY, DEVICE_REPOSITORY, EVENT_PUBLISHER_PORT, THEFT_MODE_REPOSITORY],
     },
+    {
+      provide: ExecuteWipeUseCase,
+      useFactory: (
+        deviceRepo: DeviceRepository,
+        userRepo: UserRepository,
+        hasher: PasswordHasher,
+        commandRepo: CommandRepository,
+        pushPort: PushNotificationPort,
+        auditRepo: AuditEventRepository,
+        config: ConfigService,
+        verifyActionTwoFactorUseCase: VerifyActionTwoFactorUseCase,
+      ) => {
+        const rawAllow = config.get<any>('ALLOW_REMOTE_WIPE', false);
+        const allowRemoteWipe = rawAllow === true || rawAllow === 'true' || rawAllow === 1 || rawAllow === '1';
+        const wipeTtl = config.get<number>('WIPE_COMMAND_TTL_SECONDS', 600);
+        return new ExecuteWipeUseCase(
+          deviceRepo,
+          userRepo,
+          hasher,
+          commandRepo,
+          pushPort,
+          auditRepo,
+          allowRemoteWipe,
+          wipeTtl,
+          verifyActionTwoFactorUseCase,
+        );
+      },
+      inject: [
+        DEVICE_REPOSITORY,
+        USER_REPOSITORY,
+        PASSWORD_HASHER,
+        COMMAND_REPOSITORY,
+        PUSH_NOTIFICATION_PORT,
+        AUDIT_EVENT_REPOSITORY,
+        ConfigService,
+        VerifyActionTwoFactorUseCase,
+      ],
+    },
+    {
+      provide: ListAuditEventsUseCase,
+      useFactory: (auditRepo: AuditEventRepository) => new ListAuditEventsUseCase(auditRepo),
+      inject: [AUDIT_EVENT_REPOSITORY],
+    },
     CommandExpiryJob,
   ],
   exports: [
@@ -109,6 +166,8 @@ import { THEFT_MODE_REPOSITORY, type TheftModeRepository } from '../theft-mode/d
     AUDIT_EVENT_REPOSITORY,
     PUSH_NOTIFICATION_PORT,
     SendCommandUseCase,
+    ExecuteWipeUseCase,
+    ListAuditEventsUseCase,
   ],
 })
 export class CommandsModule {}

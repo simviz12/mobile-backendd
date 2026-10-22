@@ -153,6 +153,7 @@ export class TheftModeController {
       callerUserId: user.userId,
       callerIp: ip,
       password: dto.password,
+      twoFactorCode: dto.twoFactorCode,
       force: isForce,
     });
 

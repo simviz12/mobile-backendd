@@ -8,7 +8,7 @@ import { AppError } from '../../../shared/errors/app-error.js';
 export interface AckCommandInput {
   commandId: string;
   authenticatingDeviceId: string;
-  status: 'DELIVERED' | 'EXECUTED' | 'FAILED';
+  status: 'DELIVERED' | 'EXECUTING' | 'EXECUTED' | 'FAILED';
   reason?: string;
 }
 
@@ -41,6 +41,18 @@ export class AckCommandUseCase {
       case 'DELIVERED':
         command.markDelivered(now);
         break;
+      case 'EXECUTING':
+        if (command.type === CommandType.WIPE) {
+          command.markExecuting(now);
+          // For WIPE, EXECUTED can never arrive because device will be wiped.
+          // Clean mapping: Transition to final-success EXECUTED with reason "EXECUTED_PENDING_CONFIRMATION"
+          command.markExecuted(now);
+          command.markFailed = () => {}; // Final state
+          (command as any).props.failureReason = 'EXECUTED_PENDING_CONFIRMATION';
+        } else {
+          command.markDelivered(now);
+        }
+        break;
       case 'EXECUTED':
         command.markExecuted(now);
         break;
@@ -70,6 +82,9 @@ export class AckCommandUseCase {
         device.setLastOnlineState(true);
         if (command.type === CommandType.THEFT_MODE_OFF && input.status === 'EXECUTED') {
           device.setTheftModeActive(false);
+        }
+        if (command.type === CommandType.WIPE && input.status === 'EXECUTING') {
+          device.markWiped(now);
         }
         await this.deviceRepository.save(device);
 

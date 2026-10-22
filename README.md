@@ -204,6 +204,86 @@ npm run test:e2e
   - `GET /devices/:id/theft-mode/history`: Query history of theft mode activations
   - `DELETE /devices/:id/theft-mode?force=true`: Deactivate theft mode with password re-check
 
+---
+
+## 💥 Remote Wipe with Safeguards (Part 9)
+- **Extreme Precaution Safeguards**:
+  - **Safety Switch**: By default, `ALLOW_REMOTE_WIPE=false` in environment config. Remote wipe is completely blocked (`403 WIPE_DISABLED`) unless explicitly turned on.
+  - **Explicit Confirmation**: Requires `{ "confirmationText": "BORRAR", "password": "<current_password>" }` with Argon2id re-verification.
+  - **Rejection on Generic Endpoint**: Generic `POST /devices/:id/commands` strictly rejects `WIPE` with `400 VALIDATION_ERROR`.
+  - **Strict Rate Limit**: Enforces a strict limit of 3 attempts per hour per user.
+  - **Capability Requirements**: Device must be `PROTECTED`, reachable via FCM, and have `adminEnabled: true` (`DEVICE_ADMIN_WIPE`).
+  - **Device Acknowledgment Protocol**: The device acks `EXECUTING` immediately before initiating the wipe. The backend transitions the command to `EXECUTED` (`failureReason: "EXECUTED_PENDING_CONFIRMATION"`), sets `wipedAt = NOW()`, and disables device tokens.
+  - **Audit Trail**: Every wipe attempt (success or error) is saved in the audit log, queryable via `GET /audit?deviceId=`.
+- **How to Safely Test Remote Wipe**:
+  1. Add `ALLOW_REMOTE_WIPE=true` to your `.env` file (or test environment).
+  2. Run the automated E2E test suite:
+     ```powershell
+     npm run test:e2e test/wipe.e2e-spec.ts
+     ```
+  3. **CRITICAL WARNING**: NEVER test remote wipe live against a real personal device, as it triggers a full factory reset.
+
+---
+
+## 🔒 Hardening, 2FA (TOTP) & Release Preparation (Part 10)
+- **RFC 6238 TOTP Two-Factor Authentication**:
+  - `POST /auth/2fa/setup`: Generates AES-256-GCM encrypted temporary secret and `otpauth://` QR-code URI.
+  - `POST /auth/2fa/enable`: Confirms 6-digit TOTP code and returns 10 single-use SHA-256 hashed backup codes.
+  - `POST /auth/2fa/disable`: Disables 2FA with password and code validation.
+  - `POST /auth/2fa/verify`: Validates temporary single-purpose `twoFactorToken` with code/backup code and issues session.
+  - **Account Lockout**: 5 failed 2FA verification attempts locks the account for 15 minutes (`429 ACCOUNT_LOCKED`).
+- **Protected Actions Guard**:
+  - `POST /devices/:id/wipe` and `DELETE /devices/:id/theft-mode` require `twoFactorCode` in addition to password when 2FA is active (`401 TWO_FACTOR_REQUIRED` / `401 TWO_FACTOR_INVALID`).
+- **Active Session Management**:
+  - `GET /auth/sessions`: List active refresh tokens with user agent and creation timestamp.
+  - `DELETE /auth/sessions/:id`: Revoke a specific session.
+  - `POST /auth/logout-all`: Invalidate all active sessions for the user.
+  - `POST /auth/change-password`: Change user password and automatically revoke all sessions.
+- **Production Hardening**:
+  - Helmet security headers enabled.
+  - CORS origin restricted by `ALLOWED_ORIGINS` environment variable.
+  - Global payload body size limits (1MB).
+  - Request ID tracing (`X-Request-ID`) attached to logs and headers.
+  - No stack traces in production error responses.
+  - 0 vulnerability dependency status confirmed via `npm audit`.
+
+---
+
+## 📋 Environment Variables Reference Table
+
+| Variable | Type | Default | Description & Example |
+|---|---|---|---|
+| `PORT` | Number | `3000` | Port where NestJS HTTP server listens (`3000`) |
+| `NODE_ENV` | String | `development` | Runtime environment (`development`, `production`, `test`) |
+| `DATABASE_URL` | String | *Required* | PostgreSQL connection string (`postgresql://user:pass@host:5432/db?schema=public`) |
+| `JWT_ACCESS_SECRET` | String | *Required* | 256-bit secret key used to sign access tokens |
+| `JWT_REFRESH_SECRET` | String | *Required* | Secret key for refresh token signature verification |
+| `JWT_ACCESS_TTL` | String | `15m` | Lifetime of access tokens (`15m`, `1h`) |
+| `JWT_REFRESH_TTL` | String | `30d` | Lifetime of refresh tokens (`7d`, `30d`) |
+| `HEARTBEAT_TIMEOUT_SECONDS` | Number | `300` | Device inactivity timeout for offline state transition (default `300`s = 5 min) |
+| `FIREBASE_SERVICE_ACCOUNT_PATH`| String | *Required* | Path to Firebase Service Account JSON credentials file |
+| `COMMAND_TTL_SECONDS` | Number | `120` | Default time-to-live for standard device commands (seconds) |
+| `LOCK_COMMAND_TTL_SECONDS` | Number | `60` | TTL for screen `LOCK` command (seconds) |
+| `WIPE_COMMAND_TTL_SECONDS` | Number | `600` | TTL for remote `WIPE` command (seconds) |
+| `LOCATION_RETENTION_DAYS` | Number | `30` | Number of days to retain historical GPS locations before daily pruning job |
+| `ALLOW_REMOTE_WIPE` | Boolean| `false` | Master safety switch to allow executing `POST /devices/:id/wipe` |
+| `ALLOWED_ORIGINS` | String | `*` | Comma-separated list of allowed CORS origins (`https://guardian.domain.com`) |
+| `TWO_FACTOR_ENCRYPTION_KEY` | String | *Auto* | 32-byte secret for encrypting TOTP secrets at rest in the database |
+
+---
+
+## 🚀 Production Deployment Commands
+
+```powershell
+# Run production migrations
+npx prisma migrate deploy
+
+# Run with docker-compose
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+---
+
 ## 🌿 GitFlow Branching Model
 - `main`: Production-ready releases.
 - `develop`: Integration branch for active development.

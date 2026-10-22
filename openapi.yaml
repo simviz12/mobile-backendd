@@ -46,12 +46,141 @@ paths:
               $ref: "#/components/schemas/LoginDto"
       responses:
         "200":
+          description: Successful login or 2FA challenge
+      summary: Authenticate user with email and password
+      tags: *a1
+  /auth/2fa/setup:
+    post:
+      operationId: AuthController_setupTwoFactor
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupTwoFactorResponseDto"
+      security:
+        - bearer: []
+      summary: Setup TOTP 2FA secret
+      tags: *a1
+  /auth/2fa/enable:
+    post:
+      operationId: AuthController_enableTwoFactor
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnableTwoFactorDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnableTwoFactorResponseDto"
+      security:
+        - bearer: []
+      summary: Confirm and enable TOTP 2FA with 6-digit code
+      tags: *a1
+  /auth/2fa/disable:
+    post:
+      operationId: AuthController_disableTwoFactor
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisableTwoFactorDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Disable TOTP 2FA with password and code
+      tags: *a1
+  /auth/2fa/verify:
+    post:
+      operationId: AuthController_verifyTwoFactor
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyTwoFactorLoginDto"
+      responses:
+        "200":
           description: ""
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponseDto"
-      summary: Authenticate user with email and password
+      summary: Verify 2FA token with TOTP or backup code to complete login
+      tags: *a1
+  /auth/sessions:
+    get:
+      operationId: AuthController_listSessions
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionItemDto"
+      security:
+        - bearer: []
+      summary: List active refresh sessions for the current user
+      tags: *a1
+  /auth/sessions/{id}:
+    delete:
+      operationId: AuthController_revokeSession
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Revoke a specific refresh session
+      tags: *a1
+  /auth/logout-all:
+    post:
+      operationId: AuthController_logoutAll
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Revoke all refresh sessions for the current user
+      tags: *a1
+  /auth/change-password:
+    post:
+      operationId: AuthController_changePassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Change user password and revoke all other sessions
       tags: *a1
   /auth/refresh:
     post:
@@ -272,6 +401,46 @@ paths:
       summary: "Update device capabilities reported by the device itself
         (Authorization: Device <token>)"
       tags: *a2
+  /devices/{id}/wipe:
+    post:
+      operationId: DeviceController_wipeDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WipeDeviceDto"
+      responses:
+        "202":
+          description: Wipe command dispatched to device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WipeResponseDto"
+        "400":
+          description: VALIDATION_ERROR (confirmation text must equal "BORRAR")
+        "401":
+          description: INVALID_CREDENTIALS
+        "403":
+          description: WIPE_DISABLED
+        "404":
+          description: DEVICE_NOT_FOUND
+        "409":
+          description: DEVICE_NOT_PROTECTED or CAPABILITY_NOT_AVAILABLE or
+            DEVICE_NOT_REACHABLE
+        "429":
+          description: Too Many Requests (Rate limit exceeded)
+      security:
+        - bearer: []
+      summary: Request remote wipe for a protected device (requires password and
+        confirmation text "BORRAR")
+      tags: *a2
   /devices/{id}/commands:
     post:
       operationId: CommandController_sendCommand
@@ -335,6 +504,7 @@ paths:
               - PENDING
               - SENT
               - DELIVERED
+              - EXECUTING
               - EXECUTED
               - FAILED
               - EXPIRED
@@ -352,6 +522,7 @@ paths:
               - LOCATE
               - THEFT_MODE_ON
               - THEFT_MODE_OFF
+              - WIPE
       responses:
         "200":
           description: ""
@@ -408,6 +579,28 @@ paths:
       summary: "Acknowledge command delivery/execution from target device
         (Authorization: Device <token>)"
       tags: *a3
+  /audit:
+    get:
+      operationId: AuditController_listAuditEvents
+      parameters:
+        - name: deviceId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: List of audit events
+      security:
+        - bearer: []
+      summary: List audit trail events for authenticated user
+      tags:
+        - Audit
   /devices/{id}/locations:
     post:
       operationId: LocationController_recordLocation
@@ -724,6 +917,96 @@ components:
       required:
         - email
         - password
+    SetupTwoFactorResponseDto:
+      type: object
+      properties:
+        secret:
+          type: string
+          example: JBSWY3DPEHPK3PXP
+        otpauthUrl:
+          type: string
+          example: otpauth://totp/Guardian%20Mobile:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Guardian%20Mobile
+      required:
+        - secret
+        - otpauthUrl
+    EnableTwoFactorDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "123456"
+      required:
+        - code
+    EnableTwoFactorResponseDto:
+      type: object
+      properties:
+        backupCodes:
+          example:
+            - A1B2-C3D4
+            - E5F6-G7H8
+          type: array
+          items:
+            type: string
+      required:
+        - backupCodes
+    DisableTwoFactorDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: Secret123!
+        code:
+          type: string
+          example: "123456"
+      required:
+        - password
+        - code
+    VerifyTwoFactorLoginDto:
+      type: object
+      properties:
+        twoFactorToken:
+          type: string
+          example: eyJhbGciOi...
+        code:
+          type: string
+          example: "123456"
+      required:
+        - twoFactorToken
+        - code
+    SessionItemDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: c0b89d81-6782-4cbe-a238-aeb49ef61e1b
+        userAgent:
+          type: object
+          example: Mozilla/5.0 (Android; Mobile)
+        createdAt:
+          format: date-time
+          type: string
+          example: 2026-10-08T00:00:00.000Z
+        expiresAt:
+          format: date-time
+          type: string
+          example: 2026-11-08T00:00:00.000Z
+      required:
+        - id
+        - userAgent
+        - createdAt
+        - expiresAt
+    ChangePasswordDto:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          example: Secret123!
+        newPassword:
+          type: string
+          example: NewSecret123!
+      required:
+        - currentPassword
+        - newPassword
     RefreshDto:
       type: object
       properties:
@@ -772,11 +1055,15 @@ components:
           format: date-time
           type: string
           example: 2026-10-06T00:00:00.000Z
+        twoFactorEnabled:
+          type: boolean
+          example: false
       required:
         - id
         - email
         - displayName
         - createdAt
+        - twoFactorEnabled
     LinkDeviceDto:
       type: object
       properties:
@@ -857,6 +1144,13 @@ components:
         theftModeActive:
           type: boolean
           example: false
+        wipeEnabled:
+          type: boolean
+          example: false
+        wipedAt:
+          type: object
+          example: null
+          nullable: true
         batteryLevel:
           type: object
           example: 85
@@ -895,6 +1189,7 @@ components:
         - mode
         - adminEnabled
         - theftModeActive
+        - wipeEnabled
         - isOnline
         - createdAt
         - updatedAt
@@ -1040,6 +1335,10 @@ components:
           type: boolean
           example: true
           description: Whether Device Admin privilege is active
+        wipeEnabled:
+          type: boolean
+          example: true
+          description: Whether Remote Wipe capability is active
         permissions:
           $ref: "#/components/schemas/DevicePermissionsDto"
         batteryLevel:
@@ -1059,6 +1358,32 @@ components:
         fcmToken:
           type: string
           example: fcm-new-token
+    WipeDeviceDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: AccountPassword123!
+          description: Account password of the device owner
+        confirmationText:
+          type: string
+          example: BORRAR
+          description: Case-sensitive confirmation text that must equal exactly "BORRAR"
+        twoFactorCode:
+          type: string
+          example: "123456"
+          description: TOTP or backup code (required if 2FA is enabled on user account)
+      required:
+        - password
+        - confirmationText
+    WipeResponseDto:
+      type: object
+      properties:
+        command:
+          type: object
+          description: Created WIPE command details
+      required:
+        - command
     CreateCommandDto:
       type: object
       properties:
@@ -1072,6 +1397,7 @@ components:
             - LOCATE
             - THEFT_MODE_ON
             - THEFT_MODE_OFF
+            - WIPE
           example: RING
           description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE,
             THEFT_MODE_ON, THEFT_MODE_OFF)
@@ -1108,6 +1434,7 @@ components:
             - LOCATE
             - THEFT_MODE_ON
             - THEFT_MODE_OFF
+            - WIPE
           example: RING
         payload:
           type: object
@@ -1119,6 +1446,7 @@ components:
             - PENDING
             - SENT
             - DELIVERED
+            - EXECUTING
             - EXECUTED
             - FAILED
             - EXPIRED
@@ -1170,6 +1498,7 @@ components:
           type: string
           enum:
             - DELIVERED
+            - EXECUTING
             - EXECUTED
             - FAILED
           example: DELIVERED
@@ -1378,6 +1707,10 @@ components:
           type: string
           example: SecretPassword123!
           description: Account password required to confirm deactivation
+        twoFactorCode:
+          type: string
+          example: "123456"
+          description: TOTP or backup code (required if 2FA is enabled on user account)
       required:
         - password
     DeactivateTheftModeResponseDto:

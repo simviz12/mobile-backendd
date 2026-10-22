@@ -16,6 +16,8 @@ import { AuthModule } from '../auth/auth.module.js';
 import { PASSWORD_HASHER, type PasswordHasher } from '../auth/domain/auth-ports.js';
 import { TheftModeRepository } from './domain/theft-mode.repository.js';
 
+import { VerifyActionTwoFactorUseCase } from '../auth/application/verify-action-two-factor.usecase.js';
+
 @Module({
   imports: [
     forwardRef(() => DevicesModule),
@@ -67,6 +69,7 @@ import { TheftModeRepository } from './domain/theft-mode.repository.js';
         hasher: PasswordHasher,
         sendCommandUseCase: SendCommandUseCase,
         auditRepo: AuditEventRepository,
+        verifyActionTwoFactorUseCase: VerifyActionTwoFactorUseCase,
       ) =>
         new DeactivateTheftModeUseCase(
           deviceRepo,
@@ -75,6 +78,7 @@ import { TheftModeRepository } from './domain/theft-mode.repository.js';
           hasher,
           sendCommandUseCase,
           auditRepo,
+          verifyActionTwoFactorUseCase,
         ),
       inject: [
         DEVICE_REPOSITORY,
@@ -83,6 +87,7 @@ import { TheftModeRepository } from './domain/theft-mode.repository.js';
         PASSWORD_HASHER,
         SendCommandUseCase,
         AUDIT_EVENT_REPOSITORY,
+        VerifyActionTwoFactorUseCase,
       ],
     },
   ],

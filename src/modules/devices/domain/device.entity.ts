@@ -33,6 +33,8 @@ export interface DeviceProps {
   deviceTokenHash?: string | null;
   adminEnabled?: boolean;
   theftModeActive?: boolean;
+  wipeEnabled?: boolean;
+  wipedAt?: Date | null;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
   networkType?: string | null;
@@ -103,9 +105,25 @@ export class Device {
     return this.props.theftModeActive ?? false;
   }
 
+  get wipeEnabled(): boolean {
+    return this.props.wipeEnabled ?? false;
+  }
+
+  get wipedAt(): Date | null | undefined {
+    return this.props.wipedAt;
+  }
+
   setTheftModeActive(active: boolean): void {
     this.props.theftModeActive = active;
     this.props.updatedAt = new Date();
+  }
+
+  markWiped(now: Date = new Date()): void {
+    this.props.wipedAt = now;
+    this.props.deviceTokenHash = null;
+    this.props.fcmToken = null;
+    this.props.theftModeActive = false;
+    this.props.updatedAt = now;
   }
 
   get lastLocation(): LastLocationSummary | null | undefined {
@@ -198,12 +216,16 @@ export class Device {
 
   updateCapabilities(capabilities: {
     adminEnabled?: boolean;
+    wipeEnabled?: boolean;
     permissions?: DevicePermissions | null;
     batteryLevel?: number | null;
     isCharging?: boolean | null;
   }): void {
     if (capabilities.adminEnabled !== undefined) {
       this.props.adminEnabled = capabilities.adminEnabled;
+    }
+    if (capabilities.wipeEnabled !== undefined) {
+      this.props.wipeEnabled = capabilities.wipeEnabled;
     }
     if (capabilities.permissions !== undefined) {
       this.props.permissions = {
@@ -250,6 +272,8 @@ export class Device {
       fcmToken: this.fcmToken ?? null,
       adminEnabled: this.adminEnabled,
       theftModeActive: this.theftModeActive,
+      wipeEnabled: this.wipeEnabled,
+      wipedAt: this.wipedAt ? this.wipedAt.toISOString() : null,
       batteryLevel: this.batteryLevel ?? null,
       isCharging: this.isCharging ?? null,
       networkType: this.networkType ?? null,

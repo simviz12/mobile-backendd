@@ -17,6 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { DeviceAuthGuard } from './device-auth.guard.js';
 import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard.js';
 import { CurrentUser } from '../../auth/presentation/current-user.decorator.js';
@@ -30,6 +31,8 @@ import { UnlinkDeviceUseCase } from '../application/unlink-device.usecase.js';
 import { UpdateDeviceCapabilitiesUseCase } from '../application/update-device-capabilities.usecase.js';
 import { GetDeviceDiagnosticsUseCase } from '../application/get-device-diagnostics.usecase.js';
 import { ReportDeviceStatusUseCase } from '../application/report-device-status.usecase.js';
+import { ExecuteWipeUseCase } from '../../commands/application/execute-wipe.usecase.js';
+import { WipeDeviceDto, WipeResponseDto } from './wipe.dto.js';
 import {
   DeviceResponseDto,
   DiagnosticsResponseDto,
@@ -55,6 +58,7 @@ export class DeviceController {
     private readonly updateDeviceCapabilitiesUseCase: UpdateDeviceCapabilitiesUseCase,
     private readonly getDeviceDiagnosticsUseCase: GetDeviceDiagnosticsUseCase,
     private readonly reportDeviceStatusUseCase: ReportDeviceStatusUseCase,
+    private readonly executeWipeUseCase: ExecuteWipeUseCase,
   ) {}
 
   @Post()
@@ -182,6 +186,7 @@ export class DeviceController {
       deviceId: id,
       authenticatingDeviceId: authenticatingDevice.id,
       adminEnabled: dto.adminEnabled,
+      wipeEnabled: dto.wipeEnabled,
       permissions: dto.permissions,
       batteryLevel: dto.batteryLevel,
       isCharging: dto.isCharging,
@@ -207,6 +212,47 @@ export class DeviceController {
       name: dto.name,
       fcmToken: dto.fcmToken,
     });
+  }
+
+  @Post(':id/wipe')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  @ApiOperation({
+    summary: 'Request remote wipe for a protected device (requires password and confirmation text "BORRAR")',
+  })
+  @ApiResponse({
+    status: 202,
+    description: 'Wipe command dispatched to device',
+    type: WipeResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'VALIDATION_ERROR (confirmation text must equal "BORRAR")' })
+  @ApiResponse({ status: 401, description: 'INVALID_CREDENTIALS' })
+  @ApiResponse({ status: 403, description: 'WIPE_DISABLED' })
+  @ApiResponse({ status: 404, description: 'DEVICE_NOT_FOUND' })
+  @ApiResponse({ status: 409, description: 'DEVICE_NOT_PROTECTED or CAPABILITY_NOT_AVAILABLE or DEVICE_NOT_REACHABLE' })
+  @ApiResponse({ status: 429, description: 'Too Many Requests (Rate limit exceeded)' })
+  async wipeDevice(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtValidatedUser,
+    @Body() dto: WipeDeviceDto,
+    @Req() req: Request,
+  ): Promise<WipeResponseDto> {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress;
+    const userAgent = req.headers['user-agent'] as string | undefined;
+
+    const command = await this.executeWipeUseCase.execute({
+      deviceId: id,
+      callerUserId: user.userId,
+      password: dto.password,
+      confirmationText: dto.confirmationText,
+      twoFactorCode: dto.twoFactorCode,
+      callerIp: ip,
+      userAgent,
+    });
+
+    return { command: command.toResponse() };
   }
 
   @Delete(':id')

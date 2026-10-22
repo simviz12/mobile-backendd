@@ -34,7 +34,8 @@ export class CommandPayloadValidator {
     if (
       type === CommandType.LOCK ||
       type === CommandType.LOCATE ||
-      type === CommandType.THEFT_MODE_OFF
+      type === CommandType.THEFT_MODE_OFF ||
+      type === CommandType.WIPE
     ) {
       return this.validateNoPayload(type, payload);
     }

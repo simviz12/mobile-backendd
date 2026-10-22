@@ -6,12 +6,14 @@ export enum CommandType {
   LOCATE = 'LOCATE',
   THEFT_MODE_ON = 'THEFT_MODE_ON',
   THEFT_MODE_OFF = 'THEFT_MODE_OFF',
+  WIPE = 'WIPE',
 }
 
 export enum CommandStatus {
   PENDING = 'PENDING',
   SENT = 'SENT',
   DELIVERED = 'DELIVERED',
+  EXECUTING = 'EXECUTING',
   EXECUTED = 'EXECUTED',
   FAILED = 'FAILED',
   EXPIRED = 'EXPIRED',
@@ -128,6 +130,31 @@ export class Command {
     this.props.deliveredAt = now;
   }
 
+  markExecuting(now: Date = new Date()): void {
+    if (this.props.type !== CommandType.WIPE) {
+      throw new DomainError(
+        'INVALID_STATE_TRANSITION',
+        `EXECUTING status is only valid for WIPE commands`,
+      );
+    }
+    if (this.props.status === CommandStatus.EXECUTING) {
+      return;
+    }
+    if (
+      this.props.status !== CommandStatus.DELIVERED &&
+      this.props.status !== CommandStatus.SENT
+    ) {
+      throw new DomainError(
+        'INVALID_STATE_TRANSITION',
+        `Cannot transition command from ${this.props.status} to EXECUTING`,
+      );
+    }
+    if (!this.props.deliveredAt) {
+      this.props.deliveredAt = now;
+    }
+    this.props.status = CommandStatus.EXECUTING;
+  }
+
   markExecuted(now: Date = new Date()): void {
     if (this.props.status === CommandStatus.EXECUTED) {
       // Idempotent ack
@@ -135,7 +162,8 @@ export class Command {
     }
     if (
       this.props.status !== CommandStatus.DELIVERED &&
-      this.props.status !== CommandStatus.SENT
+      this.props.status !== CommandStatus.SENT &&
+      this.props.status !== CommandStatus.EXECUTING
     ) {
       throw new DomainError(
         'INVALID_STATE_TRANSITION',

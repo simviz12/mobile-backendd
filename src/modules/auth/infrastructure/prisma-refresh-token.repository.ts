@@ -22,12 +22,32 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
     });
   }
 
+  async findById(id: string): Promise<RefreshToken | null> {
+    const raw = await this.prisma.refreshToken.findUnique({
+      where: { id },
+    });
+    if (!raw) return null;
+    return RefreshToken.create(raw);
+  }
+
   async findByTokenHash(tokenHash: string): Promise<RefreshToken | null> {
     const raw = await this.prisma.refreshToken.findFirst({
       where: { tokenHash },
     });
     if (!raw) return null;
     return RefreshToken.create(raw);
+  }
+
+  async listActiveByUserId(userId: string): Promise<RefreshToken[]> {
+    const raws = await this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return raws.map((r) => RefreshToken.create(r));
   }
 
   async revoke(id: string, replacedById?: string): Promise<void> {
@@ -40,11 +60,12 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
     });
   }
 
-  async revokeAllForUser(userId: string): Promise<void> {
+  async revokeAllForUser(userId: string, exceptId?: string): Promise<void> {
     await this.prisma.refreshToken.updateMany({
       where: {
         userId,
         revokedAt: null,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
       },
       data: {
         revokedAt: new Date(),

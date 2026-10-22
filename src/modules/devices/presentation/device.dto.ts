@@ -105,6 +105,12 @@ export class DeviceResponseDto {
   @ApiProperty({ example: false })
   theftModeActive!: boolean;
 
+  @ApiProperty({ example: false })
+  wipeEnabled!: boolean;
+
+  @ApiPropertyOptional({ example: null, nullable: true })
+  wipedAt?: string | null;
+
   @ApiPropertyOptional({ example: 85 })
   batteryLevel?: number | null;
 
@@ -207,6 +213,11 @@ export class UpdateDeviceCapabilitiesDto {
   @IsOptional()
   @IsBoolean({ message: 'adminEnabled must be a boolean' })
   adminEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether Remote Wipe capability is active' })
+  @IsOptional()
+  @IsBoolean({ message: 'wipeEnabled must be a boolean' })
+  wipeEnabled?: boolean;
 
   @ApiPropertyOptional({ type: DevicePermissionsDto })
   @IsOptional()

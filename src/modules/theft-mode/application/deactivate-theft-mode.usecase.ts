@@ -7,6 +7,7 @@ import { AuditEventRepository } from '../../commands/domain/audit-event.reposito
 import { AuditEvent } from '../../commands/domain/audit-event.entity.js';
 import { Command, CommandType } from '../../commands/domain/command.entity.js';
 import { TheftMode } from '../domain/theft-mode.entity.js';
+import { VerifyActionTwoFactorUseCase } from '../../auth/application/verify-action-two-factor.usecase.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { randomUUID } from 'crypto';
 
@@ -15,6 +16,7 @@ export interface DeactivateTheftModeInput {
   callerUserId: string;
   callerIp?: string;
   password: string;
+  twoFactorCode?: string;
   force?: boolean;
 }
 
@@ -32,6 +34,7 @@ export class DeactivateTheftModeUseCase {
     private readonly passwordHasher: PasswordHasher,
     private readonly sendCommandUseCase: SendCommandUseCase,
     private readonly auditEventRepository: AuditEventRepository,
+    private readonly verifyActionTwoFactorUseCase?: VerifyActionTwoFactorUseCase,
   ) {}
 
   async execute(input: DeactivateTheftModeInput): Promise<DeactivateTheftModeOutput> {
@@ -61,6 +64,14 @@ export class DeactivateTheftModeUseCase {
     );
     if (!isPasswordValid) {
       throw new AppError('INVALID_CREDENTIALS', 'Invalid password', 401);
+    }
+
+    // Verify 2FA code if 2FA is enabled
+    if (this.verifyActionTwoFactorUseCase) {
+      await this.verifyActionTwoFactorUseCase.execute({
+        userId: input.callerUserId,
+        twoFactorCode: input.twoFactorCode,
+      });
     }
 
     const now = new Date();

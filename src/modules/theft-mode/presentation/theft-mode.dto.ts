@@ -67,6 +67,14 @@ export class DeactivateTheftModeDto {
   @IsString()
   @IsNotEmpty()
   password!: string;
+
+  @ApiPropertyOptional({
+    example: '123456',
+    description: 'TOTP or backup code (required if 2FA is enabled on user account)',
+  })
+  @IsOptional()
+  @IsString()
+  twoFactorCode?: string;
 }
 
 export class TheftModeResponseDto {

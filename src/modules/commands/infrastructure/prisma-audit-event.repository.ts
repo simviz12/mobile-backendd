@@ -28,4 +28,32 @@ export class PrismaAuditEventRepository implements AuditEventRepository {
       createdAt: raw.createdAt,
     });
   }
+
+  async findByUserId(
+    userId: string,
+    options?: { deviceId?: string; limit?: number },
+  ): Promise<AuditEvent[]> {
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+    const where: any = { userId };
+    if (options?.deviceId) {
+      where.deviceId = options.deviceId;
+    }
+
+    const rows = await this.prisma.auditEvent.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+
+    return rows.map((raw) =>
+      AuditEvent.create({
+        id: raw.id,
+        userId: raw.userId,
+        deviceId: raw.deviceId,
+        action: raw.action,
+        metadata: raw.metadata as Record<string, any> | null,
+        createdAt: raw.createdAt,
+      }),
+    );
+  }
 }

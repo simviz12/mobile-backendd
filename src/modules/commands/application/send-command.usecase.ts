@@ -30,6 +30,15 @@ export class SendCommandUseCase {
   ) {}
 
   async execute(input: SendCommandInput): Promise<Command> {
+    if (input.type === CommandType.WIPE) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'WIPE command cannot be issued through generic commands endpoint',
+        400,
+        ['WIPE command must be issued through dedicated POST /devices/:id/wipe endpoint'],
+      );
+    }
+
     const device = await this.deviceRepository.findById(input.deviceId);
 
     // Target must belong to caller

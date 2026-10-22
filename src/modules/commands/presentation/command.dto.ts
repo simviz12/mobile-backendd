@@ -73,13 +73,13 @@ export class ListCommandsQueryDto {
 
 export class AckCommandDto {
   @ApiProperty({
-    enum: ['DELIVERED', 'EXECUTED', 'FAILED'],
+    enum: ['DELIVERED', 'EXECUTING', 'EXECUTED', 'FAILED'],
     example: 'DELIVERED',
   })
-  @IsIn(['DELIVERED', 'EXECUTED', 'FAILED'], {
-    message: 'status must be DELIVERED, EXECUTED or FAILED',
+  @IsIn(['DELIVERED', 'EXECUTING', 'EXECUTED', 'FAILED'], {
+    message: 'status must be DELIVERED, EXECUTING, EXECUTED or FAILED',
   })
-  status!: 'DELIVERED' | 'EXECUTED' | 'FAILED';
+  status!: 'DELIVERED' | 'EXECUTING' | 'EXECUTED' | 'FAILED';
 
   @ApiPropertyOptional({ example: 'Sound played successfully' })
   @IsOptional()

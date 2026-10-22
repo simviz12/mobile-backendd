@@ -6,6 +6,7 @@ export interface UpdateDeviceCapabilitiesInput {
   deviceId: string;
   authenticatingDeviceId: string;
   adminEnabled?: boolean;
+  wipeEnabled?: boolean;
   permissions?: DevicePermissions | null;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
@@ -29,6 +30,7 @@ export class UpdateDeviceCapabilitiesUseCase {
 
     device.updateCapabilities({
       adminEnabled: input.adminEnabled,
+      wipeEnabled: input.wipeEnabled,
       permissions: input.permissions,
       batteryLevel: input.batteryLevel,
       isCharging: input.isCharging,

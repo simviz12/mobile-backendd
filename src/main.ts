@@ -8,13 +8,29 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import YAML from 'yaml';
 
+import helmet from 'helmet';
+import express from 'express';
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for development & mobile LAN connectivity
+  // Hardening: Helmet security headers
+  app.use(helmet());
+
+  // Hardening: Body limit protection (1mb default)
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+  // Hardening: CORS restricted by env ALLOWED_ORIGINS
+  const rawOrigins = process.env.ALLOWED_ORIGINS || '*';
+  const corsOrigin =
+    rawOrigins === '*'
+      ? true
+      : rawOrigins.split(',').map((o) => o.trim());
+
   app.enableCors({
-    origin: true,
+    origin: corsOrigin,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

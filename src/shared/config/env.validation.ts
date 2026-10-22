@@ -1,5 +1,6 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -54,7 +55,20 @@ export class EnvironmentVariables {
   LOCK_COMMAND_TTL_SECONDS: number = 60;
 
   @IsNumber()
+  WIPE_COMMAND_TTL_SECONDS: number = 600;
+
+  @IsNumber()
   LOCATION_RETENTION_DAYS: number = 30;
+
+  @Transform(({ value }) => value === 'true' || value === true || value === 1 || value === '1')
+  @IsBoolean()
+  ALLOW_REMOTE_WIPE: boolean = false;
+
+  @IsString()
+  ALLOWED_ORIGINS: string = '*';
+
+  @IsString()
+  TWO_FACTOR_ENCRYPTION_KEY: string = 'guardian-default-two-factor-encryption-key-32bytes!';
 }
 
 export function validateEnv(config: Record<string, unknown>) {

@@ -12,6 +12,13 @@ export interface LoginUserInput {
   userAgent?: string;
 }
 
+export type LoginOutput =
+  | AuthResult
+  | {
+      requiresTwoFactor: true;
+      twoFactorToken: string;
+    };
+
 export class LoginUserUseCase {
   constructor(
     private readonly userRepository: UserRepository,
@@ -20,7 +27,7 @@ export class LoginUserUseCase {
     private readonly tokenService: TokenService,
   ) {}
 
-  async execute(input: LoginUserInput): Promise<AuthResult> {
+  async execute(input: LoginUserInput): Promise<LoginOutput> {
     const normalizedEmail = input.email.toLowerCase().trim();
     const user = await this.userRepository.findByEmail(normalizedEmail);
 
@@ -43,6 +50,14 @@ export class LoginUserUseCase {
         'Invalid email or password',
         401,
       );
+    }
+
+    if (user.twoFactorEnabled) {
+      const twoFactorToken = this.tokenService.generateTwoFactorToken(user.id);
+      return {
+        requiresTwoFactor: true,
+        twoFactorToken,
+      };
     }
 
     const accessToken = this.tokenService.generateAccessToken({ sub: user.id });
