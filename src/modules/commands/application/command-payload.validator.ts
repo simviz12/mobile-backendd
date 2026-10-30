@@ -1,0 +1,229 @@
+import { AppError } from '../../../shared/errors/app-error.js';
+import { CommandType } from '../domain/command.entity.js';
+
+export interface ValidatedRingPayload {
+  durationSeconds: number;
+}
+
+export interface ValidatedVibratePayload {
+  durationSeconds: number;
+}
+
+export interface ValidatedMessagePayload {
+  text: string;
+  contactPhone?: string;
+}
+
+export interface ValidatedTheftModeOnPayload {
+  message: string;
+  contactPhone?: string;
+  locationIntervalSeconds: number;
+  alarm: boolean;
+  lock: boolean;
+}
+
+export type ValidatedCommandPayload =
+  | ValidatedRingPayload
+  | ValidatedVibratePayload
+  | ValidatedMessagePayload
+  | ValidatedTheftModeOnPayload
+  | null;
+
+export class CommandPayloadValidator {
+  static validate(type: CommandType, payload: any): ValidatedCommandPayload {
+    if (
+      type === CommandType.LOCK ||
+      type === CommandType.LOCATE ||
+      type === CommandType.THEFT_MODE_OFF ||
+      type === CommandType.WIPE
+    ) {
+      return this.validateNoPayload(type, payload);
+    }
+
+    const raw = payload ?? {};
+
+    switch (type) {
+      case CommandType.RING:
+        return this.validateRing(raw);
+      case CommandType.VIBRATE:
+        return this.validateVibrate(raw);
+      case CommandType.MESSAGE:
+        return this.validateMessage(raw);
+      case CommandType.THEFT_MODE_ON:
+        return this.validateTheftModeOn(raw);
+      default:
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'Validation failed',
+          400,
+          [`Invalid command type: ${type}`],
+        );
+    }
+  }
+
+  private static validateNoPayload(type: CommandType, payload: any): null {
+    if (payload !== undefined && payload !== null && Object.keys(payload).length > 0) {
+      throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, [
+        `${type} command does not accept a payload`,
+      ]);
+    }
+    return null;
+  }
+
+  private static validateRing(raw: any): ValidatedRingPayload {
+    const errors: string[] = [];
+    let durationSeconds = 30;
+
+    if (raw.durationSeconds !== undefined && raw.durationSeconds !== null) {
+      if (
+        typeof raw.durationSeconds !== 'number' ||
+        !Number.isInteger(raw.durationSeconds)
+      ) {
+        errors.push('durationSeconds must be an integer');
+      } else if (raw.durationSeconds < 5 || raw.durationSeconds > 60) {
+        errors.push('durationSeconds must be between 5 and 60');
+      } else {
+        durationSeconds = raw.durationSeconds;
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, errors);
+    }
+
+    return { durationSeconds };
+  }
+
+  private static validateVibrate(raw: any): ValidatedVibratePayload {
+    const errors: string[] = [];
+    let durationSeconds = 5;
+
+    if (raw.durationSeconds !== undefined && raw.durationSeconds !== null) {
+      if (
+        typeof raw.durationSeconds !== 'number' ||
+        !Number.isInteger(raw.durationSeconds)
+      ) {
+        errors.push('durationSeconds must be an integer');
+      } else if (raw.durationSeconds < 1 || raw.durationSeconds > 30) {
+        errors.push('durationSeconds must be between 1 and 30');
+      } else {
+        durationSeconds = raw.durationSeconds;
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, errors);
+    }
+
+    return { durationSeconds };
+  }
+
+  private static validateMessage(raw: any): ValidatedMessagePayload {
+    const errors: string[] = [];
+
+    if (raw.text === undefined || raw.text === null) {
+      errors.push('text is required');
+    } else if (typeof raw.text !== 'string') {
+      errors.push('text must be a string');
+    } else {
+      const trimmed = raw.text.trim();
+      if (trimmed.length < 1 || trimmed.length > 200) {
+        errors.push('text must be between 1 and 200 characters');
+      }
+    }
+
+    let contactPhone: string | undefined = undefined;
+    if (raw.contactPhone !== undefined && raw.contactPhone !== null) {
+      if (typeof raw.contactPhone !== 'string') {
+        errors.push('contactPhone must be a string');
+      } else {
+        const phone = raw.contactPhone.trim();
+        const phoneRegex = /^\+?[0-9]+$/;
+        if (phone.length < 5 || phone.length > 20 || !phoneRegex.test(phone)) {
+          errors.push(
+            'contactPhone must be between 5 and 20 characters and contain only digits and optional leading "+"',
+          );
+        } else {
+          contactPhone = phone;
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, errors);
+    }
+
+    return {
+      text: (raw.text as string).trim(),
+      ...(contactPhone ? { contactPhone } : {}),
+    };
+  }
+
+  private static validateTheftModeOn(raw: any): ValidatedTheftModeOnPayload {
+    const errors: string[] = [];
+
+    // message: 1..200 chars, trimmed, required
+    if (raw.message === undefined || raw.message === null) {
+      errors.push('message is required');
+    } else if (typeof raw.message !== 'string') {
+      errors.push('message must be a string');
+    } else {
+      const trimmed = raw.message.trim();
+      if (trimmed.length < 1 || trimmed.length > 200) {
+        errors.push('message must be between 1 and 200 characters');
+      }
+    }
+
+    // contactPhone: optional string, digits and "+" only, 5..20 chars
+    let contactPhone: string | undefined = undefined;
+    if (raw.contactPhone !== undefined && raw.contactPhone !== null) {
+      if (typeof raw.contactPhone !== 'string') {
+        errors.push('contactPhone must be a string');
+      } else {
+        const phone = raw.contactPhone.trim();
+        const phoneRegex = /^\+?[0-9]+$/;
+        if (phone.length < 5 || phone.length > 20 || !phoneRegex.test(phone)) {
+          errors.push(
+            'contactPhone must be between 5 and 20 characters and contain only digits and optional leading "+"',
+          );
+        } else {
+          contactPhone = phone;
+        }
+      }
+    }
+
+    // locationIntervalSeconds: 60..900, required integer
+    if (raw.locationIntervalSeconds === undefined || raw.locationIntervalSeconds === null) {
+      errors.push('locationIntervalSeconds is required');
+    } else if (
+      typeof raw.locationIntervalSeconds !== 'number' ||
+      !Number.isInteger(raw.locationIntervalSeconds)
+    ) {
+      errors.push('locationIntervalSeconds must be an integer');
+    } else if (raw.locationIntervalSeconds < 60 || raw.locationIntervalSeconds > 900) {
+      errors.push('locationIntervalSeconds must be between 60 and 900');
+    }
+
+    // alarm: boolean required
+    if (typeof raw.alarm !== 'boolean') {
+      errors.push('alarm must be a boolean');
+    }
+
+    // lock: boolean required
+    if (typeof raw.lock !== 'boolean') {
+      errors.push('lock must be a boolean');
+    }
+
+    if (errors.length > 0) {
+      throw new AppError('VALIDATION_ERROR', 'Validation failed', 400, errors);
+    }
+
+    return {
+      message: (raw.message as string).trim(),
+      ...(contactPhone ? { contactPhone } : {}),
+      locationIntervalSeconds: raw.locationIntervalSeconds,
+      alarm: raw.alarm,
+      lock: raw.lock,
+    };
+  }
+}

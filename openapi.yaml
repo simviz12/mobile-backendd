@@ -1,0 +1,1730 @@
+openapi: 3.0.0
+paths:
+  /health:
+    get:
+      operationId: HealthController_getHealth
+      parameters: []
+      responses:
+        "200":
+          description: Health status response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponseDto"
+      summary: Check API service and database health status
+      tags:
+        - Health
+  /auth/register:
+    post:
+      operationId: AuthController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponseDto"
+      summary: Register a new user account
+      tags: &a1
+        - Auth
+  /auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginDto"
+      responses:
+        "200":
+          description: Successful login or 2FA challenge
+      summary: Authenticate user with email and password
+      tags: *a1
+  /auth/2fa/setup:
+    post:
+      operationId: AuthController_setupTwoFactor
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupTwoFactorResponseDto"
+      security:
+        - bearer: []
+      summary: Setup TOTP 2FA secret
+      tags: *a1
+  /auth/2fa/enable:
+    post:
+      operationId: AuthController_enableTwoFactor
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnableTwoFactorDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnableTwoFactorResponseDto"
+      security:
+        - bearer: []
+      summary: Confirm and enable TOTP 2FA with 6-digit code
+      tags: *a1
+  /auth/2fa/disable:
+    post:
+      operationId: AuthController_disableTwoFactor
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisableTwoFactorDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Disable TOTP 2FA with password and code
+      tags: *a1
+  /auth/2fa/verify:
+    post:
+      operationId: AuthController_verifyTwoFactor
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyTwoFactorLoginDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponseDto"
+      summary: Verify 2FA token with TOTP or backup code to complete login
+      tags: *a1
+  /auth/sessions:
+    get:
+      operationId: AuthController_listSessions
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionItemDto"
+      security:
+        - bearer: []
+      summary: List active refresh sessions for the current user
+      tags: *a1
+  /auth/sessions/{id}:
+    delete:
+      operationId: AuthController_revokeSession
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Revoke a specific refresh session
+      tags: *a1
+  /auth/logout-all:
+    post:
+      operationId: AuthController_logoutAll
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Revoke all refresh sessions for the current user
+      tags: *a1
+  /auth/change-password:
+    post:
+      operationId: AuthController_changePassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Change user password and revoke all other sessions
+      tags: *a1
+  /auth/refresh:
+    post:
+      operationId: AuthController_refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponseDto"
+      summary: Rotate refresh token and get a new access token
+      tags: *a1
+  /auth/logout:
+    post:
+      operationId: AuthController_logout
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Logout and revoke refresh token session
+      tags: *a1
+  /auth/me:
+    get:
+      operationId: AuthController_me
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserProfileDto"
+      security:
+        - bearer: []
+      summary: Get current authenticated user profile
+      tags: *a1
+  /devices:
+    post:
+      operationId: DeviceController_linkDevice
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkDeviceDto"
+      responses:
+        "200":
+          description: Existing installation updated and new device token rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkDeviceResponseDto"
+        "201":
+          description: Device linked for the first time
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkDeviceResponseDto"
+      security:
+        - bearer: []
+      summary: Link or re-link a mobile device to the authenticated user account
+      tags: &a2
+        - Devices
+    get:
+      operationId: DeviceController_listDevices
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListDevicesResponseDto"
+      security:
+        - bearer: []
+      summary: List all devices belonging to the authenticated user (newest first)
+      tags: *a2
+  /devices/{id}:
+    get:
+      operationId: DeviceController_getDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponseDto"
+      security:
+        - bearer: []
+      summary: Get details of a specific device belonging to the user
+      tags: *a2
+    patch:
+      operationId: DeviceController_updateDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponseDto"
+      security:
+        - bearer: []
+      summary: Update device details (name, fcmToken)
+      tags: *a2
+    delete:
+      operationId: DeviceController_unlinkDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Unlink and delete a device, invalidating its device token
+      tags: *a2
+  /devices/{id}/diagnostics:
+    get:
+      operationId: DeviceController_getDiagnostics
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticsResponseDto"
+      security:
+        - bearer: []
+      summary: Get comprehensive diagnostics and health problems for a device
+      tags: *a2
+  /devices/{id}/status:
+    post:
+      operationId: DeviceController_reportStatus
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportStatusDto"
+      responses:
+        "204":
+          description: Status recorded successfully
+      summary: "Report battery, charging, network type, and touch device heartbeat
+        (Authorization: Device <token>)"
+      tags: *a2
+  /devices/{id}/capabilities:
+    patch:
+      operationId: DeviceController_updateCapabilities
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceCapabilitiesDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponseDto"
+      summary: "Update device capabilities reported by the device itself
+        (Authorization: Device <token>)"
+      tags: *a2
+  /devices/{id}/wipe:
+    post:
+      operationId: DeviceController_wipeDevice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WipeDeviceDto"
+      responses:
+        "202":
+          description: Wipe command dispatched to device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WipeResponseDto"
+        "400":
+          description: VALIDATION_ERROR (confirmation text must equal "BORRAR")
+        "401":
+          description: INVALID_CREDENTIALS
+        "403":
+          description: WIPE_DISABLED
+        "404":
+          description: DEVICE_NOT_FOUND
+        "409":
+          description: DEVICE_NOT_PROTECTED or CAPABILITY_NOT_AVAILABLE or
+            DEVICE_NOT_REACHABLE
+        "429":
+          description: Too Many Requests (Rate limit exceeded)
+      security:
+        - bearer: []
+      summary: Request remote wipe for a protected device (requires password and
+        confirmation text "BORRAR")
+      tags: *a2
+  /devices/{id}/commands:
+    post:
+      operationId: CommandController_sendCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommandDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponseDto"
+      security:
+        - bearer: []
+      summary: Issue a remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE) to a
+        protected device
+      tags: &a3
+        - Commands
+    get:
+      operationId: CommandController_listCommands
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: false
+          in: query
+          description: Number of items to return (1..50)
+          schema:
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+            type: number
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor for pagination
+          schema:
+            example: eyJpZCI6IjEyMyJ9
+            type: string
+        - name: status
+          required: false
+          in: query
+          description: Filter by command status
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - SENT
+              - DELIVERED
+              - EXECUTING
+              - EXECUTED
+              - FAILED
+              - EXPIRED
+        - name: type
+          required: false
+          in: query
+          description: Filter by command type
+          schema:
+            type: string
+            enum:
+              - RING
+              - VIBRATE
+              - MESSAGE
+              - LOCK
+              - LOCATE
+              - THEFT_MODE_ON
+              - THEFT_MODE_OFF
+              - WIPE
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCommandsResponseDto"
+      security:
+        - bearer: []
+      summary: List commands for a device with cursor pagination and optional filters
+      tags: *a3
+  /commands/{id}:
+    get:
+      operationId: CommandController_getCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponseDto"
+      security:
+        - bearer: []
+      summary: Get command status by ID
+      tags: *a3
+  /commands/{id}/ack:
+    post:
+      operationId: CommandController_ackCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AckCommandDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponseDto"
+      summary: "Acknowledge command delivery/execution from target device
+        (Authorization: Device <token>)"
+      tags: *a3
+  /audit:
+    get:
+      operationId: AuditController_listAuditEvents
+      parameters:
+        - name: deviceId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: List of audit events
+      security:
+        - bearer: []
+      summary: List audit trail events for authenticated user
+      tags:
+        - Audit
+  /devices/{id}/locations:
+    post:
+      operationId: LocationController_recordLocation
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostLocationDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LocationResponseDto"
+      summary: "Record device location (single or batch up to 50 items)
+        (Authorization: Device <token> or Bearer <jwt>)"
+      tags: &a4
+        - Locations
+    get:
+      operationId: LocationController_listLocations
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: from
+          required: false
+          in: query
+          schema:
+            example: 2026-10-06T00:00:00.000Z
+            type: string
+        - name: to
+          required: false
+          in: query
+          schema:
+            example: 2026-10-06T23:59:59.000Z
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 500
+            default: 50
+            example: 50
+            type: number
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LocationResponseDto"
+      security:
+        - bearer: []
+      summary: Get location history for a device (newest first, max 500)
+      tags: *a4
+  /devices/{id}/locations/latest:
+    get:
+      operationId: LocationController_getLatestLocation
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationResponseDto"
+      security:
+        - bearer: []
+      summary: Get latest recorded location for a device
+      tags: *a4
+  /devices/{id}/theft-mode:
+    post:
+      operationId: TheftModeController_activate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateTheftModeDto"
+      responses:
+        "201":
+          description: Theft mode activated and THEFT_MODE_ON command dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivateTheftModeResponseDto"
+        "409":
+          description: THEFT_MODE_ALREADY_ACTIVE or CAPABILITY_NOT_AVAILABLE
+      security: &a5
+        - bearer: []
+      summary: Activate theft mode on a protected device
+      tags: &a6
+        - TheftMode
+    get:
+      operationId: TheftModeController_getActive
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active theft mode record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TheftModeResponseDto"
+        "404":
+          description: THEFT_MODE_NOT_ACTIVE or DEVICE_NOT_FOUND
+      security: *a5
+      summary: Get active theft mode configuration for device
+      tags: *a6
+    delete:
+      operationId: TheftModeController_deactivate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: force
+          required: false
+          in: query
+          description: Immediately close theft mode in database without waiting for device
+            ack
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeactivateTheftModeDto"
+      responses:
+        "200":
+          description: THEFT_MODE_OFF command created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeactivateTheftModeResponseDto"
+        "401":
+          description: INVALID_CREDENTIALS if password confirmation fails
+        "404":
+          description: THEFT_MODE_NOT_ACTIVE or DEVICE_NOT_FOUND
+      security: *a5
+      summary: Deactivate theft mode on a protected device
+      tags: *a6
+  /devices/{id}/theft-mode/history:
+    get:
+      operationId: TheftModeController_getHistory
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of theft mode activation records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TheftModeResponseDto"
+      security: *a5
+      summary: Get history of theft mode activations for device
+      tags: *a6
+info:
+  title: Guardian Mobile API
+  description: >-
+    Remote Anti-Theft Protection System for Android Phones.
+
+
+    ### Real-time WebSocket Gateway (`/realtime`)
+
+    The API provides a Socket.IO real-time gateway at `/realtime`.
+
+    - **Authentication**: Handshake `auth: { token: "<user_jwt>" }` or
+    `Authorization: Bearer <user_jwt>` header.
+
+    - **Room Isolation**: Automatically joins `user:<userId>` room.
+
+    - **Events**:
+      - `device.status`: `{ deviceId, isOnline, batteryLevel, isCharging, networkType, lastSeenAt }`
+      - `device.linked` / `device.unlinked`: `{ deviceId, ownerId }`
+      - `command.updated`: `{ commandId, deviceId, type, status, failureReason, updatedAt }`
+      - `location.updated`: `{ deviceId, location }`
+  version: 0.0.1
+  contact: {}
+tags:
+  - name: Health
+    description: System and database health monitoring
+servers: []
+components:
+  schemas:
+    HealthResponseDto:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+          enum:
+            - ok
+            - error
+        service:
+          type: string
+          example: guardian-api
+        version:
+          type: string
+          example: 0.0.1
+        time:
+          type: string
+          example: 2026-10-05T23:50:00.000Z
+        database:
+          type: string
+          example: up
+          enum:
+            - up
+            - down
+      required:
+        - status
+        - service
+        - version
+        - time
+        - database
+    RegisterDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          example: Secret123!
+        displayName:
+          type: string
+          example: Alex Developer
+      required:
+        - email
+        - password
+        - displayName
+    UserResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 0c72e...
+        email:
+          type: string
+          example: user@example.com
+        displayName:
+          type: string
+          example: Alex Developer
+      required:
+        - id
+        - email
+        - displayName
+    AuthResponseDto:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserResponseDto"
+        accessToken:
+          type: string
+          example: eyJhbGciOi...
+        refreshToken:
+          type: string
+          example: 8f7d92...
+        expiresIn:
+          type: number
+          example: 900
+      required:
+        - user
+        - accessToken
+        - refreshToken
+        - expiresIn
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          example: Secret123!
+      required:
+        - email
+        - password
+    SetupTwoFactorResponseDto:
+      type: object
+      properties:
+        secret:
+          type: string
+          example: JBSWY3DPEHPK3PXP
+        otpauthUrl:
+          type: string
+          example: otpauth://totp/Guardian%20Mobile:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Guardian%20Mobile
+      required:
+        - secret
+        - otpauthUrl
+    EnableTwoFactorDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "123456"
+      required:
+        - code
+    EnableTwoFactorResponseDto:
+      type: object
+      properties:
+        backupCodes:
+          example:
+            - A1B2-C3D4
+            - E5F6-G7H8
+          type: array
+          items:
+            type: string
+      required:
+        - backupCodes
+    DisableTwoFactorDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: Secret123!
+        code:
+          type: string
+          example: "123456"
+      required:
+        - password
+        - code
+    VerifyTwoFactorLoginDto:
+      type: object
+      properties:
+        twoFactorToken:
+          type: string
+          example: eyJhbGciOi...
+        code:
+          type: string
+          example: "123456"
+      required:
+        - twoFactorToken
+        - code
+    SessionItemDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: c0b89d81-6782-4cbe-a238-aeb49ef61e1b
+        userAgent:
+          type: object
+          example: Mozilla/5.0 (Android; Mobile)
+        createdAt:
+          format: date-time
+          type: string
+          example: 2026-10-08T00:00:00.000Z
+        expiresAt:
+          format: date-time
+          type: string
+          example: 2026-11-08T00:00:00.000Z
+      required:
+        - id
+        - userAgent
+        - createdAt
+        - expiresAt
+    ChangePasswordDto:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          example: Secret123!
+        newPassword:
+          type: string
+          example: NewSecret123!
+      required:
+        - currentPassword
+        - newPassword
+    RefreshDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: d3f6a2...
+      required:
+        - refreshToken
+    RefreshResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOi...
+        refreshToken:
+          type: string
+          example: 8f7d92...
+        expiresIn:
+          type: number
+          example: 900
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+    LogoutDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: d3f6a2...
+      required:
+        - refreshToken
+    CurrentUserProfileDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 0c72e...
+        email:
+          type: string
+          example: user@example.com
+        displayName:
+          type: string
+          example: Alex Developer
+        createdAt:
+          format: date-time
+          type: string
+          example: 2026-10-06T00:00:00.000Z
+        twoFactorEnabled:
+          type: boolean
+          example: false
+      required:
+        - id
+        - email
+        - displayName
+        - createdAt
+        - twoFactorEnabled
+    LinkDeviceDto:
+      type: object
+      properties:
+        installId:
+          type: string
+          example: install-uuid-12345
+        name:
+          type: string
+          example: My Pixel 8 Pro
+        platform:
+          type: string
+          example: android
+          enum:
+            - android
+            - ios
+        model:
+          type: string
+          example: Pixel 8 Pro
+        osVersion:
+          type: string
+          example: Android 14
+        appVersion:
+          type: string
+          example: 1.0.0
+        mode:
+          type: string
+          enum:
+            - PROTECTED
+            - CONTROLLER
+          example: PROTECTED
+        fcmToken:
+          type: string
+          example: fcm-registration-token-sample
+      required:
+        - installId
+        - name
+        - platform
+        - mode
+    DeviceResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: c028a39a-7964-42b7-a36e-5264b3017a52
+        ownerId:
+          type: string
+          example: u123...
+        installId:
+          type: string
+          example: install-uuid-12345
+        name:
+          type: string
+          example: My Pixel 8 Pro
+        platform:
+          type: string
+          example: android
+        model:
+          type: object
+          example: Pixel 8 Pro
+        osVersion:
+          type: object
+          example: Android 14
+        appVersion:
+          type: object
+          example: 1.0.0
+        mode:
+          type: string
+          enum:
+            - PROTECTED
+            - CONTROLLER
+          example: PROTECTED
+        fcmToken:
+          type: object
+          example: fcm-token-sample
+        adminEnabled:
+          type: boolean
+          example: false
+        theftModeActive:
+          type: boolean
+          example: false
+        wipeEnabled:
+          type: boolean
+          example: false
+        wipedAt:
+          type: object
+          example: null
+          nullable: true
+        batteryLevel:
+          type: object
+          example: 85
+        isCharging:
+          type: object
+          example: false
+        networkType:
+          type: object
+          example: wifi
+        lastSeenAt:
+          type: object
+          example: null
+        isOnline:
+          type: boolean
+          example: false
+        lastLocation:
+          type: object
+          example:
+            latitude: 4.6097
+            longitude: -74.0817
+            accuracyMeters: 10.5
+            recordedAt: 2026-10-06T12:00:00.000Z
+          nullable: true
+        createdAt:
+          type: string
+          example: 2026-10-06T00:00:00.000Z
+        updatedAt:
+          type: string
+          example: 2026-10-06T00:00:00.000Z
+      required:
+        - id
+        - ownerId
+        - installId
+        - name
+        - platform
+        - mode
+        - adminEnabled
+        - theftModeActive
+        - wipeEnabled
+        - isOnline
+        - createdAt
+        - updatedAt
+    LinkDeviceResponseDto:
+      type: object
+      properties:
+        device:
+          $ref: "#/components/schemas/DeviceResponseDto"
+        deviceToken:
+          type: string
+          example: d9b736b...256bit-token
+      required:
+        - device
+        - deviceToken
+    ListDevicesResponseDto:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceResponseDto"
+      required:
+        - devices
+    DiagnosticsLastCommandDto:
+      type: object
+      properties:
+        type:
+          type: string
+          example: VIBRATE
+        status:
+          type: string
+          example: EXPIRED
+        failureReason:
+          type: object
+          example: COMMAND_EXPIRED
+          nullable: true
+        at:
+          type: string
+          example: 2026-10-07T16:42:05.355Z
+      required:
+        - type
+        - status
+        - at
+    DevicePermissionsDto:
+      type: object
+      properties:
+        notifications:
+          type: object
+          example: true
+          nullable: true
+        locationForeground:
+          type: object
+          example: true
+          nullable: true
+        locationBackground:
+          type: object
+          example: true
+          nullable: true
+        batteryOptimizationIgnored:
+          type: object
+          example: true
+          nullable: true
+        deviceAdmin:
+          type: object
+          example: true
+          nullable: true
+        fullScreenIntent:
+          type: object
+          example: true
+          nullable: true
+    DiagnosticsResponseDto:
+      type: object
+      properties:
+        hasFcmToken:
+          type: boolean
+          example: true
+        hasDeviceToken:
+          type: boolean
+          example: true
+        lastSeenAt:
+          type: object
+          example: 2026-10-07T16:00:00.000Z
+          nullable: true
+        lastStatusAt:
+          type: object
+          example: 2026-10-07T16:00:00.000Z
+          nullable: true
+        lastLocationAt:
+          type: object
+          example: 2026-10-07T16:00:00.000Z
+          nullable: true
+        lastCommand:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/DiagnosticsLastCommandDto"
+        permissions:
+          $ref: "#/components/schemas/DevicePermissionsDto"
+        problems:
+          example:
+            - NO_HEARTBEAT
+            - NO_LOCATION
+          type: array
+          items:
+            type: string
+      required:
+        - hasFcmToken
+        - hasDeviceToken
+        - permissions
+        - problems
+    ReportStatusDto:
+      type: object
+      properties:
+        batteryLevel:
+          type: number
+          example: 85
+          description: Battery percentage 0..100
+        isCharging:
+          type: boolean
+          example: false
+          description: Whether the device is plugged in
+        networkType:
+          type: string
+          example: wifi
+          enum:
+            - wifi
+            - mobile
+            - none
+            - unknown
+          description: Current network type
+        appVersion:
+          type: string
+          example: 1.0.1
+          description: Updated client app version
+      required:
+        - batteryLevel
+        - isCharging
+        - networkType
+    UpdateDeviceCapabilitiesDto:
+      type: object
+      properties:
+        adminEnabled:
+          type: boolean
+          example: true
+          description: Whether Device Admin privilege is active
+        wipeEnabled:
+          type: boolean
+          example: true
+          description: Whether Remote Wipe capability is active
+        permissions:
+          $ref: "#/components/schemas/DevicePermissionsDto"
+        batteryLevel:
+          type: object
+          example: 85
+          nullable: true
+        isCharging:
+          type: object
+          example: false
+          nullable: true
+    UpdateDeviceDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Renamed Phone
+        fcmToken:
+          type: string
+          example: fcm-new-token
+    WipeDeviceDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: AccountPassword123!
+          description: Account password of the device owner
+        confirmationText:
+          type: string
+          example: BORRAR
+          description: Case-sensitive confirmation text that must equal exactly "BORRAR"
+        twoFactorCode:
+          type: string
+          example: "123456"
+          description: TOTP or backup code (required if 2FA is enabled on user account)
+      required:
+        - password
+        - confirmationText
+    WipeResponseDto:
+      type: object
+      properties:
+        command:
+          type: object
+          description: Created WIPE command details
+      required:
+        - command
+    CreateCommandDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - RING
+            - VIBRATE
+            - MESSAGE
+            - LOCK
+            - LOCATE
+            - THEFT_MODE_ON
+            - THEFT_MODE_OFF
+            - WIPE
+          example: RING
+          description: Type of remote command (RING, VIBRATE, MESSAGE, LOCK, LOCATE,
+            THEFT_MODE_ON, THEFT_MODE_OFF)
+        payload:
+          type: object
+          description: "Payload specific to the command type. RING: {durationSeconds:
+            5..60}. VIBRATE: {durationSeconds: 1..30}. MESSAGE: {text: 1..200,
+            contactPhone?: string}. THEFT_MODE_ON: {message, contactPhone?,
+            locationIntervalSeconds, alarm, lock}. LOCK/LOCATE/THEFT_MODE_OFF:
+            no payload allowed."
+          example:
+            durationSeconds: 30
+      required:
+        - type
+    CommandResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: c123...
+        deviceId:
+          type: string
+          example: d123...
+        issuedById:
+          type: string
+          example: u123...
+        type:
+          type: string
+          enum:
+            - RING
+            - VIBRATE
+            - MESSAGE
+            - LOCK
+            - LOCATE
+            - THEFT_MODE_ON
+            - THEFT_MODE_OFF
+            - WIPE
+          example: RING
+        payload:
+          type: object
+          example:
+            durationSeconds: 30
+        status:
+          type: string
+          enum:
+            - PENDING
+            - SENT
+            - DELIVERED
+            - EXECUTING
+            - EXECUTED
+            - FAILED
+            - EXPIRED
+          example: SENT
+        failureReason:
+          type: object
+          example: null
+        createdAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        sentAt:
+          type: object
+          example: 2026-10-06T12:00:01.000Z
+        deliveredAt:
+          type: object
+          example: null
+        executedAt:
+          type: object
+          example: null
+        expiresAt:
+          type: string
+          example: 2026-10-06T12:02:00.000Z
+      required:
+        - id
+        - deviceId
+        - issuedById
+        - type
+        - status
+        - createdAt
+        - expiresAt
+    PaginatedCommandsResponseDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommandResponseDto"
+        nextCursor:
+          type: object
+          example: c123...
+          nullable: true
+          description: Opaque cursor for the next page, or null if no further pages
+      required:
+        - items
+    AckCommandDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - DELIVERED
+            - EXECUTING
+            - EXECUTED
+            - FAILED
+          example: DELIVERED
+        reason:
+          type: string
+          example: Sound played successfully
+      required:
+        - status
+    SingleLocationDto:
+      type: object
+      properties:
+        latitude:
+          type: number
+          example: 4.60971
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          example: -74.08175
+          minimum: -180
+          maximum: 180
+        accuracyMeters:
+          type: number
+          example: 12.5
+        speedMps:
+          type: number
+          example: 1.2
+        recordedAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        source:
+          type: string
+          enum:
+            - LOCATE_COMMAND
+            - PERIODIC
+            - THEFT_MODE
+          example: LOCATE_COMMAND
+      required:
+        - latitude
+        - longitude
+        - recordedAt
+        - source
+    PostLocationDto:
+      type: object
+      properties:
+        latitude:
+          type: number
+          example: 4.60971
+        longitude:
+          type: number
+          example: -74.08175
+        accuracyMeters:
+          type: number
+          example: 12.5
+        speedMps:
+          type: number
+          example: 1.2
+        recordedAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        source:
+          type: string
+          enum:
+            - LOCATE_COMMAND
+            - PERIODIC
+            - THEFT_MODE
+          example: LOCATE_COMMAND
+        locations:
+          description: Batch array up to 50 locations
+          type: array
+          items:
+            $ref: "#/components/schemas/SingleLocationDto"
+    LocationResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: loc-uuid
+        deviceId:
+          type: string
+          example: dev-uuid
+        latitude:
+          type: number
+          example: 4.60971
+        longitude:
+          type: number
+          example: -74.08175
+        accuracyMeters:
+          type: object
+          example: 12.5
+          nullable: true
+        speedMps:
+          type: object
+          example: 1.2
+          nullable: true
+        recordedAt:
+          type: string
+          example: 2026-10-06T12:00:00.000Z
+        receivedAt:
+          type: string
+          example: 2026-10-06T12:00:01.000Z
+        source:
+          type: string
+          enum:
+            - LOCATE_COMMAND
+            - PERIODIC
+            - THEFT_MODE
+          example: LOCATE_COMMAND
+      required:
+        - id
+        - deviceId
+        - latitude
+        - longitude
+        - recordedAt
+        - receivedAt
+        - source
+    ActivateTheftModeDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Este teléfono fue reportado como robado. Por favor devolverlo al dueño.
+          description: Message shown on lockscreen (1..200 characters)
+        contactPhone:
+          type: string
+          example: "+573001234567"
+          description: Contact phone number (5..20 digits, optional leading +)
+        locationIntervalSeconds:
+          type: number
+          example: 60
+          description: Location report interval in seconds (60..900)
+          minimum: 60
+          maximum: 900
+        alarm:
+          type: boolean
+          example: true
+          description: Trigger loud alarm on the device
+        lock:
+          type: boolean
+          example: true
+          description: Lock device screen using Device Admin
+      required:
+        - message
+        - locationIntervalSeconds
+        - alarm
+        - lock
+    TheftModeResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 8cf41f87-a2f0-4592-886b-31d79e5fa47c
+        deviceId:
+          type: string
+          example: 2690fc16-f30c-43f6-95ff-43bc919e1e23
+        activatedById:
+          type: string
+          example: 6942c7aa-00b8-4c12-9c17-eb71887e2b10
+        activatedAt:
+          type: string
+          example: 2026-10-07T20:45:00.000Z
+        deactivatedAt:
+          type: object
+          example: null
+          nullable: true
+        message:
+          type: string
+          example: Este teléfono fue reportado como robado.
+        contactPhone:
+          type: object
+          example: "+573001234567"
+          nullable: true
+        locationIntervalSeconds:
+          type: number
+          example: 60
+        alarm:
+          type: boolean
+          example: true
+        lock:
+          type: boolean
+          example: true
+      required:
+        - id
+        - deviceId
+        - activatedById
+        - activatedAt
+        - message
+        - locationIntervalSeconds
+        - alarm
+        - lock
+    ActivateTheftModeResponseDto:
+      type: object
+      properties:
+        theftMode:
+          $ref: "#/components/schemas/TheftModeResponseDto"
+        command:
+          type: object
+          description: Created THEFT_MODE_ON command
+      required:
+        - theftMode
+        - command
+    DeactivateTheftModeDto:
+      type: object
+      properties:
+        password:
+          type: string
+          example: SecretPassword123!
+          description: Account password required to confirm deactivation
+        twoFactorCode:
+          type: string
+          example: "123456"
+          description: TOTP or backup code (required if 2FA is enabled on user account)
+      required:
+        - password
+    DeactivateTheftModeResponseDto:
+      type: object
+      properties:
+        theftMode:
+          $ref: "#/components/schemas/TheftModeResponseDto"
+        command:
+          type: object
+          description: Created THEFT_MODE_OFF command
+        forced:
+          type: boolean
+          example: false
+      required:
+        - theftMode
+        - command
+        - forced

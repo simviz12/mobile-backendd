@@ -1,0 +1,48 @@
+services:
+  guardian-db:
+    image: postgres:16-alpine
+    container_name: guardian-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-guardian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guardian_prod_secret_replace_me}
+      POSTGRES_DB: ${POSTGRES_DB:-guardian_db}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-guardian} -d ${POSTGRES_DB:-guardian_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  guardian-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guardian-backend-prod
+    restart: always
+    depends_on:
+      guardian-db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-guardian}:${POSTGRES_PASSWORD:-guardian_prod_secret_replace_me}@guardian-db:5432/${POSTGRES_DB:-guardian_db}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      HEARTBEAT_TIMEOUT_SECONDS: ${HEARTBEAT_TIMEOUT_SECONDS:-300}
+      FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH}
+      COMMAND_TTL_SECONDS: ${COMMAND_TTL_SECONDS:-120}
+      LOCK_COMMAND_TTL_SECONDS: ${LOCK_COMMAND_TTL_SECONDS:-60}
+      WIPE_COMMAND_TTL_SECONDS: ${WIPE_COMMAND_TTL_SECONDS:-600}
+      LOCATION_RETENTION_DAYS: ${LOCATION_RETENTION_DAYS:-30}
+      ALLOW_REMOTE_WIPE: ${ALLOW_REMOTE_WIPE:-false}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://guardian.yourdomain.com}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY}
+
+volumes:
+  postgres_prod_data:

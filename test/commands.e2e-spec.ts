@@ -1,0 +1,548 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import request from 'supertest';
+import { AppModule } from '../src/app.module.js';
+import { GlobalExceptionFilter } from '../src/shared/errors/global-exception.filter.js';
+import { PrismaService } from '../src/shared/prisma/prisma.service.js';
+import { PUSH_NOTIFICATION_PORT, PushNotificationPort } from '../src/modules/commands/domain/push-notification.port.js';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
+
+describe('Commands Flow (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+
+  let userAToken: string;
+  let userBToken: string;
+  let deviceAId: string;
+  let deviceAToken: string;
+  let commandId: string;
+
+  const mockPushNotificationPort: PushNotificationPort = {
+    sendDataMessage: async (payload) => {
+      if (payload.fcmToken === 'fcm-invalid') {
+        return { success: false, error: 'FCM_TOKEN_INVALID', details: 'Invalid registration token' };
+      }
+      return { success: true, messageId: `projects/guardia/messages/mock-${Date.now()}` };
+    },
+  };
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(PUSH_NOTIFICATION_PORT)
+      .useValue(mockPushNotificationPort)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    app.useGlobalFilters(new GlobalExceptionFilter());
+    await app.init();
+
+    prisma = moduleFixture.get<PrismaService>(PrismaService);
+
+    // Register User A
+    const regA = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'owner.cmd@example.com', password: 'Password123!', displayName: 'Command Owner' });
+    userAToken = regA.body.accessToken;
+
+    // Register User B
+    const regB = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'other.cmd@example.com', password: 'Password123!', displayName: 'Other User' });
+    userBToken = regB.body.accessToken;
+
+    // Link a PROTECTED device for User A
+    const linkRes = await request(app.getHttpServer())
+      .post('/devices')
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        installId: 'cmd-device-install-1',
+        name: 'Protected Pixel',
+        platform: 'android',
+        mode: 'PROTECTED',
+        fcmToken: 'fcm-valid-token-123',
+      });
+
+    deviceAId = linkRes.body.device.id;
+    deviceAToken = linkRes.body.deviceToken;
+  });
+
+  afterAll(async () => {
+    await prisma.command.deleteMany({});
+    await prisma.device.deleteMany({});
+    await prisma.refreshToken.deleteMany({});
+    await prisma.user.deleteMany({});
+    await app.close();
+  });
+
+  it('POST /devices/:id/commands - 404 DEVICE_NOT_FOUND when device belongs to another user', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userBToken}`)
+      .send({ type: 'RING', payload: { durationSeconds: 30 } })
+      .expect(404);
+
+    expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
+  });
+
+  it('POST /devices/:id/commands - 201 Created issues RING command and sets status to SENT', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({ type: 'RING', payload: { durationSeconds: 20 } })
+      .expect(201);
+
+    expect(res.body.id).toBeDefined();
+    expect(res.body.type).toBe('RING');
+    expect(res.body.status).toBe('SENT');
+    expect(res.body.sentAt).toBeDefined();
+    expect(res.body.payload).toEqual({ durationSeconds: 20 });
+
+    commandId = res.body.id;
+  });
+
+  it('GET /devices/:id/commands - 200 OK lists commands of that device with cursor pagination', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(res.body).toHaveProperty('items');
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.items[0].id).toBe(commandId);
+  });
+
+  it('GET /commands/:id - 200 OK returns command for issuer', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/commands/${commandId}`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(res.body.id).toBe(commandId);
+    expect(res.body.status).toBe('SENT');
+  });
+
+  it('GET /commands/:id - 404 COMMAND_NOT_FOUND when requested by unauthorized user', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/commands/${commandId}`)
+      .set('Authorization', `Bearer ${userBToken}`)
+      .expect(404);
+
+    expect(res.body.error.code).toBe('COMMAND_NOT_FOUND');
+  });
+
+  it('POST /commands/:id/ack - 401 UNAUTHORIZED when no Device token header', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/commands/${commandId}/ack`)
+      .send({ status: 'DELIVERED' })
+      .expect(401);
+
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('POST /commands/:id/ack - 200 OK marks DELIVERED from target device', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/commands/${commandId}/ack`)
+      .set('Authorization', `Device ${deviceAToken}`)
+      .send({ status: 'DELIVERED' })
+      .expect(200);
+
+    expect(res.body.status).toBe('DELIVERED');
+    expect(res.body.deliveredAt).toBeDefined();
+  });
+
+  it('POST /commands/:id/ack - 200 OK marks EXECUTED from target device (idempotent)', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/commands/${commandId}/ack`)
+      .set('Authorization', `Device ${deviceAToken}`)
+      .send({ status: 'EXECUTED' })
+      .expect(200);
+
+    expect(res.body.status).toBe('EXECUTED');
+    expect(res.body.executedAt).toBeDefined();
+
+    // Re-ack EXECUTED idempotently
+    const reAck = await request(app.getHttpServer())
+      .post(`/commands/${commandId}/ack`)
+      .set('Authorization', `Device ${deviceAToken}`)
+      .send({ status: 'EXECUTED' })
+      .expect(200);
+
+    expect(reAck.body.status).toBe('EXECUTED');
+  });
+
+  it('POST /devices/:id/commands - 201 Created for VIBRATE command', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'VIBRATE',
+        payload: { durationSeconds: 15 },
+      })
+      .expect(201);
+
+    expect(res.body.type).toBe('VIBRATE');
+    expect(res.body.status).toBe('SENT');
+    expect(res.body.payload).toEqual({ durationSeconds: 15 });
+  });
+
+  it('POST /devices/:id/commands - 201 Created for MESSAGE command', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'MESSAGE',
+        payload: {
+          text: 'Found phone, contact me',
+          contactPhone: '+573001234567',
+        },
+      })
+      .expect(201);
+
+    expect(res.body.type).toBe('MESSAGE');
+    expect(res.body.status).toBe('SENT');
+    expect(res.body.payload).toEqual({
+      text: 'Found phone, contact me',
+      contactPhone: '+573001234567',
+    });
+  });
+
+  it('POST /devices/:id/commands - 400 VALIDATION_ERROR on invalid VIBRATE payload', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'VIBRATE',
+        payload: { durationSeconds: 60 },
+      })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details).toBeDefined();
+  });
+
+  it('POST /devices/:id/commands - 400 VALIDATION_ERROR on invalid MESSAGE payload (>200 chars)', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/devices/${deviceAId}/commands`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        type: 'MESSAGE',
+        payload: { text: 'X'.repeat(201) },
+      })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details).toBeDefined();
+  });
+
+  it('GET /devices/:id/commands - pagination and filters', async () => {
+    // Query with filter type=MESSAGE
+    const resType = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands?type=MESSAGE`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(resType.body.items.length).toBeGreaterThanOrEqual(1);
+    expect(resType.body.items.every((c: any) => c.type === 'MESSAGE')).toBe(true);
+
+    // Query with limit=1
+    const resPage1 = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands?limit=1`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(resPage1.body.items.length).toBe(1);
+    expect(resPage1.body.nextCursor).toBeDefined();
+
+    // Query second page using cursor
+    const resPage2 = await request(app.getHttpServer())
+      .get(`/devices/${deviceAId}/commands?limit=1&cursor=${resPage1.body.nextCursor}`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    expect(resPage2.body.items.length).toBe(1);
+    expect(resPage2.body.items[0].id).not.toBe(resPage1.body.items[0].id);
+  });
+
+  describe('Part 5: Capabilities & LOCK command', () => {
+    it('POST /devices/:id/commands - 409 CAPABILITY_NOT_AVAILABLE when LOCK attempted without adminEnabled', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({ type: 'LOCK' })
+        .expect(409);
+
+      expect(res.body.error.code).toBe('CAPABILITY_NOT_AVAILABLE');
+      expect(res.body.error.details).toEqual([{ capability: 'DEVICE_ADMIN' }]);
+    });
+
+    it('PATCH /devices/:id/capabilities - 401 UNAUTHORIZED when called without Device token', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/devices/${deviceAId}/capabilities`)
+        .send({ adminEnabled: true })
+        .expect(401);
+
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('PATCH /devices/:id/capabilities - 403 FORBIDDEN when called with mismatched device token', async () => {
+      // Register Device B
+      const linkB = await request(app.getHttpServer())
+        .post('/devices')
+        .set('Authorization', `Bearer ${userBToken}`)
+        .send({
+          installId: 'inst-dev-b',
+          name: 'Device B',
+          platform: 'android',
+          mode: 'PROTECTED',
+        });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/devices/${deviceAId}/capabilities`)
+        .set('Authorization', `Device ${linkB.body.deviceToken}`)
+        .send({ adminEnabled: true })
+        .expect(403);
+
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('PATCH /devices/:id/capabilities - 200 OK updates adminEnabled with valid Device token', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/devices/${deviceAId}/capabilities`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({ adminEnabled: true })
+        .expect(200);
+
+      expect(res.body.device.adminEnabled).toBe(true);
+
+      // Verify exposed in GET /devices/:id
+      const getRes = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(getRes.body.adminEnabled).toBe(true);
+    });
+
+    it('POST /devices/:id/commands - 400 VALIDATION_ERROR when LOCK sent with non-empty payload', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({
+          type: 'LOCK',
+          payload: { message: 'Lock phone now' },
+        })
+        .expect(400);
+
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('POST /devices/:id/commands - 201 Created dispatches LOCK when adminEnabled=true with shorter TTL', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({ type: 'LOCK' })
+        .expect(201);
+
+      expect(res.body.type).toBe('LOCK');
+      expect(res.body.status).toBe('SENT');
+      expect(res.body.payload).toBeNull();
+
+      // Check that expiresAt is ~60s from createdAt
+      const created = new Date(res.body.createdAt).getTime();
+      const expires = new Date(res.body.expiresAt).getTime();
+      const ttlSec = Math.round((expires - created) / 1000);
+      expect(ttlSec).toBe(60);
+
+      // Check that AuditEvent was written in the database
+      const audit = await prisma.auditEvent.findFirst({
+        where: {
+          deviceId: deviceAId,
+          action: 'COMMAND_LOCK_ISSUED',
+        },
+      });
+      expect(audit).toBeDefined();
+      expect(audit?.userId).toBeDefined();
+    });
+
+    it('POST /devices/:id/commands - 404 DEVICE_NOT_FOUND when user B tries to issue LOCK to user A device', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userBToken}`)
+        .send({ type: 'LOCK' })
+        .expect(404);
+
+      expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
+    });
+  });
+
+  describe('Part 6: Locations & LOCATE command flow', () => {
+    let locateCmdId: string;
+
+    it('POST /devices/:id/commands - 201 Created dispatches LOCATE command with 60s TTL and writes AuditEvent', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/commands`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({ type: 'LOCATE' })
+        .expect(201);
+
+      expect(res.body.type).toBe('LOCATE');
+      expect(res.body.status).toBe('SENT');
+      expect(res.body.payload).toBeNull();
+      locateCmdId = res.body.id;
+
+      const created = new Date(res.body.createdAt).getTime();
+      const expires = new Date(res.body.expiresAt).getTime();
+      expect(Math.round((expires - created) / 1000)).toBe(60);
+
+      const audit = await prisma.auditEvent.findFirst({
+        where: {
+          deviceId: deviceAId,
+          action: 'COMMAND_LOCATE_ISSUED',
+        },
+      });
+      expect(audit).toBeDefined();
+    });
+
+    it('POST /devices/:id/locations - 401 UNAUTHORIZED when called without Device token', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .send({
+          latitude: 4.6097,
+          longitude: -74.0817,
+          recordedAt: new Date().toISOString(),
+          source: 'LOCATE_COMMAND',
+        })
+        .expect(401);
+
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('POST /devices/:id/locations - 403 FORBIDDEN when called with mismatched device token', async () => {
+      // Register Device C with different token
+      const linkC = await request(app.getHttpServer())
+        .post('/devices')
+        .set('Authorization', `Bearer ${userBToken}`)
+        .send({
+          installId: 'inst-dev-c',
+          name: 'Device C',
+          platform: 'android',
+          mode: 'PROTECTED',
+        });
+
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .set('Authorization', `Device ${linkC.body.deviceToken}`)
+        .send({
+          latitude: 4.6097,
+          longitude: -74.0817,
+          recordedAt: new Date().toISOString(),
+          source: 'LOCATE_COMMAND',
+        })
+        .expect(403);
+
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('POST /devices/:id/locations - 201 Created records location and answers LOCATE command', async () => {
+      const now = new Date();
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({
+          latitude: 4.60971,
+          longitude: -74.08175,
+          accuracyMeters: 8.5,
+          speedMps: 0.5,
+          recordedAt: now.toISOString(),
+          source: 'LOCATE_COMMAND',
+        })
+        .expect(201);
+
+      expect(res.body.latitude).toBe(4.60971);
+      expect(res.body.longitude).toBe(-74.08175);
+      expect(res.body.source).toBe('LOCATE_COMMAND');
+
+      // Device acks command as EXECUTED
+      const ackRes = await request(app.getHttpServer())
+        .post(`/commands/${locateCmdId}/ack`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({ status: 'EXECUTED' })
+        .expect(200);
+
+      expect(ackRes.body.status).toBe('EXECUTED');
+    });
+
+    it('POST /devices/:id/locations - 201 Created handles batch offline sync up to 50 items', async () => {
+      const now = Date.now();
+      const batch = Array.from({ length: 5 }, (_, i) => ({
+        latitude: 4.61 + i * 0.001,
+        longitude: -74.08 - i * 0.001,
+        accuracyMeters: 10,
+        speedMps: 1.0,
+        recordedAt: new Date(now - (5 - i) * 60 * 1000).toISOString(),
+        source: 'PERIODIC',
+      }));
+
+      const res = await request(app.getHttpServer())
+        .post(`/devices/${deviceAId}/locations`)
+        .set('Authorization', `Device ${deviceAToken}`)
+        .send({ locations: batch })
+        .expect(201);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(5);
+    });
+
+    it('GET /devices/:id/locations/latest - 200 OK returns latest location to owner', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}/locations/latest`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(res.body.deviceId).toBe(deviceAId);
+      expect(res.body.latitude).toBeDefined();
+      expect(res.body.longitude).toBeDefined();
+    });
+
+    it('GET /devices/:id/locations/latest - 404 DEVICE_NOT_FOUND when requested by unauthorized user', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}/locations/latest`)
+        .set('Authorization', `Bearer ${userBToken}`)
+        .expect(404);
+
+      expect(res.body.error.code).toBe('DEVICE_NOT_FOUND');
+    });
+
+    it('GET /devices/:id/locations - 200 OK returns location history with range filtering', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}/locations?limit=10`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('GET /devices/:id - 200 OK exposes lastLocation in device response', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/devices/${deviceAId}`)
+        .set('Authorization', `Bearer ${userAToken}`)
+        .expect(200);
+
+      expect(res.body.lastLocation).toBeDefined();
+      expect(res.body.lastLocation).not.toBeNull();
+      expect(res.body.lastLocation.latitude).toBeDefined();
+      expect(res.body.lastLocation.longitude).toBeDefined();
+    });
+  });
+});

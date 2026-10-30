@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: guardian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: guardian
+      POSTGRES_PASSWORD: guardian_secret
+      POSTGRES_DB: guardian_db
+    ports:
+      - '5433:5432'
+    volumes:
+      - guardian_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U guardian -d guardian_db']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guardian-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://guardian:guardian_secret@postgres:5432/guardian_db?schema=public
+      JWT_ACCESS_SECRET: replace_with_strong_jwt_access_secret_guardian
+      JWT_REFRESH_SECRET: replace_with_strong_jwt_refresh_secret_guardian
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      HEARTBEAT_TIMEOUT_SECONDS: 300
+      COMMAND_TTL_SECONDS: 120
+      LOCK_COMMAND_TTL_SECONDS: 60
+      LOCATION_RETENTION_DAYS: 30
+      TWO_FACTOR_ENCRYPTION_KEY: replace_with_strong_jwt_access_secret_guardian
+      ALLOW_REMOTE_WIPE: "true"
+
+volumes:
+  guardian_pgdata:
+    name: guardian_pgdata

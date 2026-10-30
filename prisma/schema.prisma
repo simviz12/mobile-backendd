@@ -1,0 +1,206 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                    String              @id @default(uuid())
+  email                 String              @unique
+  passwordHash          String
+  displayName           String
+  twoFactorEnabled      Boolean             @default(false)
+  twoFactorSecretEnc    String?
+  twoFactorBackupCodes  String[]            @default([])
+  twoFactorTempSecretEnc String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  refreshTokens         RefreshToken[]
+  devices               Device[]
+  issuedCommands        Command[]           @relation("IssuedCommands")
+  theftModes            TheftMode[]
+  twoFactorAttempts     TwoFactorAttempt[]
+
+  @@map("users")
+}
+
+model TwoFactorAttempt {
+  id         String   @id @default(uuid())
+  userId     String
+  failedCount Int     @default(0)
+  lockedUntil DateTime?
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("two_factor_attempts")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+  userAgent    String?
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+enum DeviceMode {
+  PROTECTED
+  CONTROLLER
+}
+
+model Device {
+  id              String      @id @default(uuid())
+  ownerId         String
+  installId       String
+  name            String
+  platform        String
+  model           String?
+  osVersion       String?
+  appVersion      String?
+  mode            DeviceMode
+  fcmToken        String?
+  deviceTokenHash String?
+  adminEnabled    Boolean     @default(false)
+  theftModeActive Boolean     @default(false)
+  wipeEnabled     Boolean     @default(false)
+  wipedAt         DateTime?
+  batteryLevel    Int?
+  isCharging      Boolean?
+  networkType     String?
+  lastSeenAt      DateTime?
+  lastOnlineState Boolean?    @default(false)
+  permissions     Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  owner           User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  commands        Command[]
+  auditEvents     AuditEvent[]
+  locations       Location[]
+  theftModes      TheftMode[]
+
+  @@unique([ownerId, installId])
+  @@index([ownerId])
+  @@index([deviceTokenHash])
+  @@map("devices")
+}
+
+enum CommandType {
+  RING
+  VIBRATE
+  MESSAGE
+  LOCK
+  LOCATE
+  THEFT_MODE_ON
+  THEFT_MODE_OFF
+  WIPE
+}
+
+enum CommandStatus {
+  PENDING
+  SENT
+  DELIVERED
+  EXECUTING
+  EXECUTED
+  FAILED
+  EXPIRED
+}
+
+model Command {
+  id            String        @id @default(uuid())
+  deviceId      String
+  issuedById    String
+  type          CommandType
+  payload       Json?
+  status        CommandStatus @default(PENDING)
+  failureReason String?
+  createdAt     DateTime      @default(now())
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  executedAt    DateTime?
+  expiresAt     DateTime
+
+  device        Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  issuedBy      User          @relation("IssuedCommands", fields: [issuedById], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([issuedById])
+  @@index([status, expiresAt])
+  @@map("commands")
+}
+
+model AuditEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  deviceId  String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_events")
+}
+
+enum LocationSource {
+  LOCATE_COMMAND
+  PERIODIC
+  THEFT_MODE
+}
+
+model Location {
+  id             String         @id @default(uuid())
+  deviceId       String
+  latitude       Float
+  longitude      Float
+  accuracyMeters Float?
+  speedMps       Float?
+  recordedAt     DateTime
+  receivedAt     DateTime       @default(now())
+  source         LocationSource
+
+  device         Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, recordedAt(sort: Desc)])
+  @@index([recordedAt])
+  @@map("locations")
+}
+
+model TheftMode {
+  id                      String    @id @default(uuid())
+  deviceId                String
+  activatedById           String
+  activatedAt             DateTime  @default(now())
+  deactivatedAt           DateTime?
+  message                 String
+  contactPhone            String?
+  locationIntervalSeconds Int
+  alarm                   Boolean
+  lock                    Boolean
+
+  device                  Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  activatedBy             User      @relation(fields: [activatedById], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([activatedById])
+  @@index([deviceId, deactivatedAt])
+  @@map("theft_modes")
+}
