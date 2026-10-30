@@ -8,7 +8,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Install system dependencies needed for compiling native packages (argon2, etc.)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ openssl
 
 # Copy package manifests
 COPY package*.json ./
@@ -38,7 +38,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Install minimal runtime dependencies
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init openssl libc6-compat
 
 # Create non-root system user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
